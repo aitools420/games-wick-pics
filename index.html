@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portable Game NFTs — design notes</title>
+<meta name="description" content="Design notes for portable game NFTs: the token holds ownership and identity, everything else is allowed to change. Honest architecture, stated limits, no future promises.">
+<meta name="theme-color" content="#0A0D10">
+<meta property="og:title" content="Portable Game NFTs — design notes">
+<meta property="og:description" content="The NFT holds ownership and identity. Everything else is allowed to change.">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#0A0D10; --panel:#0F1419; --raise:#131A21;
+  --ink:#E4E9ED; --dim:#93A2AE; --faint:#63737F;
+  --rule:#1D262E; --rule-lit:#2A3742;
+  --lock:#E0A33E;      /* IMMUTABLE — permanent, high risk if wrong */
+  --live:#4FD1B0;      /* UPDATABLE — safe to change later */
+  --lock-bg:#E0A33E14; --live-bg:#4FD1B014;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font:16.5px/1.68 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+h1,h2,h3,.lbl{font-family:Archivo,ui-sans-serif,system-ui,sans-serif}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+
+/* ── section scaffolding ─────────────────────────────────────────── */
+section{padding:76px 0;border-top:1px solid var(--rule)}
+section:first-of-type{border-top:none}
+.lbl{
+  font-size:11px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--faint);display:flex;align-items:center;gap:12px;margin:0 0 26px
+}
+.lbl::after{content:"";flex:1;height:1px;background:var(--rule)}
+h2{font-size:clamp(23px,3vw,31px);font-weight:700;letter-spacing:-.01em;margin:0 0 14px;text-wrap:balance}
+h3{font-size:15px;font-weight:600;letter-spacing:.04em;margin:0 0 8px}
+p{margin:0 0 16px;color:var(--dim);max-width:68ch}
+p strong{color:var(--ink);font-weight:600}
+
+/* ── hero ────────────────────────────────────────────────────────── */
+.hero{padding:104px 0 68px;position:relative;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(var(--rule) 1px,transparent 1px),linear-gradient(90deg,var(--rule) 1px,transparent 1px);
+  background-size:56px 56px;opacity:.35;
+  -webkit-mask-image:radial-gradient(circle at 22% 18%,#000 0%,transparent 68%);
+          mask-image:radial-gradient(circle at 22% 18%,#000 0%,transparent 68%);
+}
+.hero .wrap{position:relative;z-index:1}
+.hero h1{
+  font-size:clamp(38px,7.4vw,80px);line-height:.98;font-weight:700;
+  letter-spacing:-.025em;margin:0 0 22px;text-wrap:balance;
+}
+.hero h1 em{font-style:normal;color:var(--faint)}
+.thesis{font-size:clamp(17px,2.1vw,21px);line-height:1.5;color:var(--ink);max-width:30ch;margin:0 0 34px;font-weight:500}
+.thesis b{color:var(--live);font-weight:600}
+.specstrip{
+  display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:3px;
+  background:var(--panel);overflow:hidden;max-width:760px
+}
+.specstrip div{padding:11px 18px;border-right:1px solid var(--rule);flex:1 1 auto}
+.specstrip div:last-child{border-right:none}
+.specstrip .k{display:block;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
+.specstrip .v{font-size:12.5px;color:var(--ink)}
+
+/* ── principle cards ─────────────────────────────────────────────── */
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
+.grid4 article{background:var(--panel);padding:24px 22px}
+.grid4 .n{font-size:11px;color:var(--faint);letter-spacing:.14em;margin-bottom:14px}
+.grid4 p{font-size:14.5px;margin:0;color:var(--dim)}
+.grid4 p b{color:var(--ink);font-weight:600}
+
+/* ── the centrepiece split ───────────────────────────────────────── */
+.split{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;margin-top:8px}
+.split .divider{background:linear-gradient(180deg,transparent,var(--rule-lit) 12%,var(--rule-lit) 88%,transparent)}
+.side{padding:30px 34px}
+.side:first-child{padding-left:0}
+.side:last-child{padding-right:0}
+.badge{
+  display:inline-flex;align-items:center;gap:8px;font-size:10.5px;font-weight:600;
+  letter-spacing:.18em;text-transform:uppercase;padding:6px 12px;border-radius:2px;margin-bottom:18px
+}
+.badge.lock{color:var(--lock);background:var(--lock-bg);border:1px solid #E0A33E38}
+.badge.live{color:var(--live);background:var(--live-bg);border:1px solid #4FD1B038}
+.side h3{font-size:19px;margin-bottom:10px}
+.side>p{font-size:14.5px;margin-bottom:20px}
+.fields{list-style:none;margin:0;padding:0}
+.fields li{
+  padding:11px 0 11px 16px;border-bottom:1px solid var(--rule);position:relative;
+  font-size:13.5px;color:var(--dim)
+}
+.fields li:last-child{border-bottom:none}
+.fields li::before{content:"";position:absolute;left:0;top:18px;width:6px;height:1px}
+.lock .fields li::before,.side.lock li::before{background:var(--lock)}
+.live .fields li::before,.side.live li::before{background:var(--live)}
+.fields code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px;color:var(--ink)}
+.risk{
+  margin-top:22px;padding:14px 16px;border-radius:3px;font-size:13px;line-height:1.55;
+  border:1px solid #E0A33E30;background:var(--lock-bg);color:#F0C689
+}
+.reassure{
+  margin-top:22px;padding:14px 16px;border-radius:3px;font-size:13px;line-height:1.55;
+  border:1px solid #4FD1B030;background:var(--live-bg);color:#8FE3CD
+}
+.dividernote{text-align:center;font-size:12px;color:var(--faint);margin:22px auto 0;max-width:56ch}
+.dividernote b{color:var(--dim);font-weight:500}
+
+/* ── stack diagram ───────────────────────────────────────────────── */
+.stack{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-top:6px}
+.layer{background:var(--panel);padding:20px 24px;display:grid;grid-template-columns:150px 1fr;gap:20px;align-items:start}
+.layer .tag{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;padding-top:3px}
+.layer .tag.lock{color:var(--lock)}
+.layer .tag.live{color:var(--live)}
+.layer .tag.game{color:var(--dim)}
+.layer p{margin:0;font-size:14px}
+.layer .what{color:var(--ink);font-size:14.5px;font-weight:600;margin-bottom:5px;display:block}
+
+/* ── table ───────────────────────────────────────────────────────── */
+.tblwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:660px;font-size:14px}
+th{
+  text-align:left;padding:14px 20px;border-bottom:1px solid var(--rule-lit);
+  font-family:Archivo,sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--faint);white-space:nowrap
+}
+td{padding:15px 20px;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--dim);line-height:1.55}
+tr:last-child td{border-bottom:none}
+td.choice{color:var(--ink);font-weight:600;width:27%}
+td.up{color:var(--live)}
+td.down{color:var(--lock)}
+
+/* ── pledge ──────────────────────────────────────────────────────── */
+.pledge{
+  border:1px solid var(--rule-lit);border-left:3px solid var(--lock);border-radius:3px;
+  background:linear-gradient(180deg,var(--raise),var(--panel));padding:36px 40px
+}
+.pledge .lbl{margin-bottom:18px}
+.pledge blockquote{
+  margin:0 0 18px;font-family:Archivo,sans-serif;font-size:clamp(18px,2.4vw,24px);
+  line-height:1.42;color:var(--ink);font-weight:500;text-wrap:balance
+}
+.pledge p{font-size:14px;margin:0;max-width:74ch}
+.wheres{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.wheres span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);border:1px solid var(--rule);padding:5px 11px;border-radius:2px}
+
+/* ── rule list ───────────────────────────────────────────────────── */
+.rules{list-style:none;margin:0;padding:0;display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
+.rules li{background:var(--panel);padding:17px 22px;font-size:14.5px;color:var(--dim);display:flex;gap:14px;align-items:baseline}
+.rules li b{color:var(--ink);font-weight:600}
+.rules .mk{color:var(--live);font-size:11px;letter-spacing:.1em;flex:0 0 auto;min-width:60px}
+.rules .mk.no{color:var(--lock)}
+
+/* ── precedents ──────────────────────────────────────────────────── */
+.refs{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
+.refs article{background:var(--panel);padding:22px}
+.refs h3{color:var(--ink);margin-bottom:4px;font-size:16px}
+.refs .role{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--live);margin-bottom:11px}
+.refs p{font-size:13.5px;margin:0}
+
+/* ── considerations ──────────────────────────────────────────────── */
+.cons{columns:2;column-gap:44px;list-style:none;padding:0;margin:0}
+.cons li{
+  break-inside:avoid;padding:0 0 14px 20px;position:relative;font-size:14.5px;color:var(--dim);margin-bottom:2px
+}
+.cons li::before{content:"";position:absolute;left:0;top:11px;width:7px;height:1px;background:var(--rule-lit)}
+.cons li b{color:var(--ink);font-weight:600;display:block;font-size:13.5px;margin-bottom:2px}
+
+/* ── storage / frontend two-up ───────────────────────────────────── */
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
+.two section{border:none;padding:0}
+.two article{background:var(--panel);padding:28px}
+.two h3{font-size:16px;margin-bottom:12px}
+.two ul{margin:0;padding-left:18px}
+.two li{font-size:14px;color:var(--dim);margin-bottom:9px;line-height:1.55}
+.two li:last-child{margin-bottom:0}
+
+footer{border-top:1px solid var(--rule);padding:38px 0 60px;color:var(--faint);font-size:12.5px}
+footer p{color:var(--faint);font-size:12.5px;max-width:74ch;margin:0 0 8px}
+
+@media(max-width:820px){
+  .split{grid-template-columns:1fr}
+  .split .divider{height:1px;width:100%;background:var(--rule-lit);margin:14px 0}
+  .side{padding:22px 0}
+  .cons{columns:1}
+  .layer{grid-template-columns:1fr;gap:8px}
+  section{padding:56px 0}
+  .pledge{padding:26px 22px}
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Portable<br>Game <em>NFTs</em></h1>
+    <p class="thesis">The token holds ownership and identity. <b>Everything else is allowed to change.</b></p>
+    <div class="specstrip mono">
+      <div><span class="k">Standard</span><span class="v">ERC-1155</span></div>
+      <div><span class="k">Storage</span><span class="v">IPFS / Arweave</span></div>
+      <div><span class="k">Stats</span><span class="v">Off-token, updatable</span></div>
+      <div><span class="k">Guarantee</span><span class="v">Game&nbsp;1 only</span></div>
+      <div><span class="k">Status</span><span class="v">Design notes</span></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">Core principle</p>
+    <div class="grid4">
+      <article>
+        <p class="n mono">01</p>
+        <p>The NFT carries <b>immutable ownership and core identity</b> — nothing else.</p>
+      </article>
+      <article>
+        <p class="n mono">02</p>
+        <p>Exact stats, balance, visuals and abilities live in <b>separate, updatable systems</b>.</p>
+      </article>
+      <article>
+        <p class="n mono">03</p>
+        <p>Portability is a <b>bonus, never a promise</b>.</p>
+      </article>
+      <article>
+        <p class="n mono">04</p>
+        <p>Every game must <b>stand completely on its own</b>.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">The architecture</p>
+    <h2>One line decides everything: what is welded on, and what is free to move.</h2>
+    <p>Anything to the left of it is permanent the moment a token is minted, and a future game can only honour it, reinterpret it, or ignore it. Anything to the right can be rebalanced, re-skinned or replaced forever. The discipline is simply keeping as little as possible on the left.</p>
+
+    <div class="split">
+      <div class="side lock">
+        <span class="badge lock">Immutable · welded on</span>
+        <h3>What the token stores</h3>
+        <p>Chosen once, at mint, for the lifetime of the asset.</p>
+        <ul class="fields">
+          <li>Token standard — <code>ERC-1155</code>, for batch transfers and gas efficiency</li>
+          <li>Core identity — <code>weapon_class</code> / <code>item_type</code></li>
+          <li><code>rarity_tier</code> and a unique ID</li>
+          <li>Base visual reference — an IPFS hash, nothing more</li>
+          <li>Ownership and transfer rules</li>
+          <li>Light abstract tiers — <code>fire_rate_tier</code>, <code>damage_multiplier_tier</code>, <code>special_tag</code></li>
+        </ul>
+        <p class="risk"><b>Risk:</b> once minted these cannot be changed. A future game's only options are to honour them, reinterpret them, or ignore them entirely.</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="side live">
+        <span class="badge live">Updatable · free to move</span>
+        <h3>What lives outside it</h3>
+        <p>A stats and compatibility layer, or ordinary game logic.</p>
+        <ul class="fields">
+          <li>Exact numbers — damage, fire rate, recoil, handling</li>
+          <li>Balance, tuning and every future rebalance</li>
+          <li>Art, animation and visual effects, per game</li>
+          <li>Abilities, perks and interactions</li>
+          <li>Engine-specific data for side-scroller, forward-scroller or 3D FPS</li>
+          <li>A map from <code>token_id</code> → current values</li>
+        </ul>
+        <p class="reassure"><b>Why it is safe:</b> anything here can be corrected after launch. A balance mistake costs a patch, not the asset.</p>
+      </div>
+    </div>
+    <p class="dividernote">The divider <b>is</b> the architecture. Move a number to the left and you have promised it forever; leave it on the right and every future title can still use the item.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">Recommended structure · guns example</p>
+    <h2>Three layers, each replaceable except the first.</h2>
+    <div class="stack">
+      <div class="layer">
+        <span class="tag lock mono">Layer 1 · NFT</span>
+        <p><span class="what">Pure ownership token plus core identity</span>Holds who owns it, what kind of thing it is, its rarity and its base art reference. It never learns what a bullet does.</p>
+      </div>
+      <div class="layer">
+        <span class="tag live mono">Layer 2 · Stats</span>
+        <p><span class="what">Updatable stats &amp; compatibility contract</span>Maps token ID to current numbers, on-chain or in game logic. Rebalancing happens here, and it can happen forever.</p>
+      </div>
+      <div class="layer">
+        <span class="tag game mono">Layer 3 · Game</span>
+        <p><span class="what">Each game supplies its own art, animation and balance</span>A side-scroller, a forward-scroller and a future 3D FPS can all read the same token without any engine-specific data ever being baked into it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">Design compromises</p>
+    <h2>Every choice here trades permanence against freedom.</h2>
+    <div class="tblwrap">
+      <table>
+        <thead>
+          <tr><th>Choice</th><th>Upside</th><th>Downside</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="choice">Extremely generic NFT</td>
+            <td class="up">Maximum future flexibility</td>
+            <td class="down">Feels slightly less "special" in Game&nbsp;1</td>
+          </tr>
+          <tr>
+            <td class="choice">More stats baked on-chain</td>
+            <td class="up">Stronger feeling of permanence</td>
+            <td class="down">Locks balance forever; future games may have to nerf or ignore it</td>
+          </tr>
+          <tr>
+            <td class="choice">Explicit "no future guarantees" language</td>
+            <td class="up">Protects against community harassment</td>
+            <td class="down">Slightly lower launch hype and FOMO</td>
+          </tr>
+          <tr>
+            <td class="choice">Extra contracts and interfaces now</td>
+            <td class="up">Far less technical debt later</td>
+            <td class="down">Higher upfront complexity</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="pledge">
+      <p class="lbl">The pledge</p>
+      <blockquote>"Utility is only guaranteed in the first game. Future titles may or may not support these NFTs. There is no obligation or timeline."</blockquote>
+      <p>Said plainly, in the same words, everywhere a buyer might look. Promising future compatibility is the one mistake that cannot be patched later — it converts every future design decision into a debt owed to people who bought expecting something else.</p>
+      <div class="wheres">
+        <span>Contract comments</span><span>This site</span><span>Whitepaper</span><span>Marketplace listing</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">Community &amp; anti-griefing</p>
+    <h2>The rules that keep a bonus from becoming a debt.</h2>
+    <ul class="rules">
+      <li><span class="mk mono">STATE IT</span><span>Put the no-guarantees line in the contract comments, on the site and in the whitepaper — <b>the same sentence in all three</b>.</span></li>
+      <li><span class="mk mono">BUILD IT</span><span>Make Game&nbsp;1 <b>excellent and complete on its own</b>. The item must be worth owning if no second game ever ships.</span></li>
+      <li><span class="mk no mono">NEVER</span><span>Never market future compatibility as certain — <b>not in a tweet, not in a Discord reply</b>.</span></li>
+      <li><span class="mk mono">OPTIONAL</span><span>A separate <b>Compatibility Registry</b> contract that future games may opt into, if and when they choose to.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">Storage &amp; frontend</p>
+    <div class="two">
+      <article>
+        <h3>Storage</h3>
+        <ul>
+          <li>Images and media on <strong>IPFS</strong>, or Arweave where stronger permanence is wanted.</li>
+          <li><strong>Never</strong> store critical data on private servers that can disappear.</li>
+          <li>Metadata JSON stays minimal, standardised, and pinned on IPFS as well.</li>
+        </ul>
+      </article>
+      <article>
+        <h3>Frontend</h3>
+        <ul>
+          <li>A simple static site that reads on-chain data — Vercel, Netlify or Cloudflare Pages.</li>
+          <li>Keep it lightweight and fast so it <strong>never becomes a dependency</strong> for the NFTs themselves.</li>
+          <li>If this site vanished tomorrow, every token would be unaffected.</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">Research precedents</p>
+    <h2>Who has actually done this, and what it cost them.</h2>
+    <div class="refs">
+      <article>
+        <h3>Illuvium</h3>
+        <p class="role">Best mechanical example</p>
+        <p>Fuel and creatures move between their own games — genuine mechanical portability inside one studio's control.</p>
+      </article>
+      <article>
+        <h3>Immutable</h3>
+        <p class="role">Marketplace &amp; economics</p>
+        <p>Strong shared marketplace and economic portability across an ecosystem of titles.</p>
+      </article>
+      <article>
+        <h3>Gala Games</h3>
+        <p class="role">Economic interoperability</p>
+        <p>A shared token and marketplace rather than shared item mechanics.</p>
+      </article>
+      <article>
+        <h3>Sandbox / Enjin</h3>
+        <p class="role">Recreation model</p>
+        <p>Items are re-created per game rather than truly carried across — expensive, and not pure portability.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="lbl">Other considerations</p>
+    <h2>Known costs, listed before they are paid.</h2>
+    <ul class="cons">
+      <li><b>Centralised off-chain data</b>Stats or images on private servers can vanish, taking the item's meaning with them.</li>
+      <li><b>Upgradeable proxy contracts</b>Add complexity and can reduce community trust in the permanence being claimed.</li>
+      <li><b>Marketplace fragmentation</b>Each game may run its own marketplace, splitting liquidity.</li>
+      <li><b>Art-style translation cost</b>The same weapon must be redrawn to fit each game's visual language.</li>
+      <li><b>Legal &amp; licensing language</b>Rights must be explicit, including the absence of rights to future titles.</li>
+      <li><b>Gas &amp; batch efficiency</b>An ERC-1155 advantage worth keeping, especially for multi-item transfers.</li>
+      <li><b>Wallet UX</b>Account abstraction matters for players who are not crypto users.</li>
+      <li><b>Regulatory uncertainty</b>NFTs are treated as securities in some jurisdictions.</li>
+      <li><b>Long-term maintenance</b>Any shared stats or compatibility contract is a permanent upkeep commitment.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Design notes — a working document, not a roadmap. Nothing here is a commitment to ship any particular title.</p>
+    <p class="mono">games.wick.pics</p>
+  </div>
+</footer>
+
+</body>
+</html>
