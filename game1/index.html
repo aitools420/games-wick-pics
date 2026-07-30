@@ -7,9 +7,17 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0a0a12">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230a0a12'/%3E%3Ctext x='50' y='72' font-size='58' text-anchor='middle'%3E%F0%9F%95%B9%3C/text%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@500;700&display=swap">
+<link rel="preload" href="/fonts/press-start-2p-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/orbitron-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  /* self-hosted so first paint needs no third-party connection */
+  @font-face{font-family:'Press Start 2P';font-style:normal;font-weight:400;font-display:swap;
+    src:url('/fonts/press-start-2p-latin.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  @font-face{font-family:'Orbitron';font-style:normal;font-weight:400 900;font-display:swap;
+    src:url('/fonts/orbitron-latin.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+</style>
 <style>
   :root{
     --neon-cyan:#05d9e8;
@@ -232,6 +240,23 @@ form.addEventListener("submit", async e => {
 });
 
 input.focus();
+
+/* Warm the game while the visitor is typing. The sheets are ~1MB and the game
+   pulls all of them at boot, so fetching them at idle priority here means
+   INSERT COIN lands on an already-cached game instead of a cold 1MB download. */
+addEventListener("load", () => {
+  const warm = ["play/", "play/manifest.json",
+    "play/hero_idle.png", "play/hero_walk.png", "play/hero_shoot.png",
+    "play/hero_runshoot.png", "play/hero_jump.png",
+    "play/hero_pistol_stand.png", "play/hero_pistol_run.png", "play/hero_pistol_jump.png",
+    "play/hero_rifle_stand.png", "play/hero_rifle_run.png", "play/hero_rifle_jump.png"];
+  for (const href of warm) {
+    const l = document.createElement("link");
+    l.rel = "prefetch";
+    l.href = href;
+    document.head.appendChild(l);
+  }
+});
 </script>
 
 </body>
