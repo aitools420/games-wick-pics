@@ -209,12 +209,13 @@
 </div>
 
 <script>
-/* Private-preview gate. NOTE: this is a static host — the check runs in the
-   browser, so it keeps casual visitors out, it is not real access control.
-   Anyone who knows the path can still open play/ directly. */
+/* Soft gate only — it cannot be real access control from here.
+   The game is hosted on THEIR public GitHub Pages, so the destination URL is
+   reachable by anyone regardless of what this page does. This just stops a
+   casual click-through from the hub. */
 const KEY = "f836f4874d384c6bf3b15c37283a5fb5535fdc9aa265b06dcccfe760ade684cc";
 const PASS_FLAG = "pw_game1_ok";
-const DEST = "play/";
+const DEST = "https://mtwhv5ktjr-bot.github.io/pepe-wick/";   // THEY host; we only point here
 
 async function sha256(str){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
@@ -248,23 +249,17 @@ form.addEventListener("submit", async e => {
 
 input.focus();
 
-/* Warm the game while the visitor is typing. The sheets are ~1MB and the game
-   pulls all of them at boot, so fetching them at idle priority here means
-   INSERT COIN lands on an already-cached game instead of a cold 1MB download. */
+/* Warm their origin while the visitor types, so the hop costs less. */
 addEventListener("load", () => {
-  const warm = ["play/", "play/manifest.json",
-    "play/hero_idle.png", "play/hero_walk.png", "play/hero_shoot.png",
-    "play/hero_runshoot.png", "play/hero_jump.png",
-    "play/hero_pistol_stand.png", "play/hero_pistol_run.png", "play/hero_pistol_jump.png",
-    "play/hero_rifle_stand.png", "play/hero_rifle_run.png", "play/hero_rifle_jump.png"];
-  for (const href of warm) {
+  for (const [rel, href] of [["preconnect", "https://mtwhv5ktjr-bot.github.io"],
+                             ["dns-prefetch", "https://mtwhv5ktjr-bot.github.io"],
+                             ["prefetch", DEST]]) {
     const l = document.createElement("link");
-    l.rel = "prefetch";
-    l.href = href;
+    l.rel = rel; l.href = href;
+    if (rel === "preconnect") l.crossOrigin = "";
     document.head.appendChild(l);
   }
-});
-</script>
+});</script>
 
 </body>
 </html>
