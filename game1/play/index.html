@@ -328,6 +328,7 @@ const HERO_SHEETS={
   pistol_jump:{file:"hero_pistol_jump.png",n:6,fps:9},  rifle_jump:{file:"hero_rifle_jump.png",n:6,fps:9}
 };
 let HEROSCALE=1.0; const heroImg={};
+const STRIDE_PX=13;   // ground px per run-cycle frame (6f cycle ≈ 78px) — matches feet to travel, no ice-skating
 const HERO_MUZ={x:0,y:0};            // (1) fine-tune bullet muzzle origin (px)
 const HERO_FOOT=2, HERO_TARGET_H=47; // (3) foot sink + on-screen character height at s=1
 // (4) empty-hand grip anchor per sheet {x:forward from body-center, y:up-from-feet, rot, gscale} — the vector Arsenal gun is drawn here
@@ -427,7 +428,11 @@ function drawHeroSprite(x,y,s,o){
   o=o||{}; const firing=(o.muzzle||0)>0, face=(o.face||1), pick=heroPick(o.pose||"idle",firing,o.gunType); if(!pick)return false;
   const sh=pick.sh, src=sh.c, fw=src.width/sh.n, fh=src.height;
   // idle = one rock-steady frame — the sheets' frames aren't pixel-registered, so cycling them reads as jitter
-  const f=((o.pose||"idle")==="idle") ? 0 : Math.floor((o.t||0)*sh.fps)%sh.n;
+  // run = distance-driven (one frame per STRIDE_PX of ground covered) so the feet grip instead of ice-skate
+  const pose=o.pose||"idle";
+  const f=pose==="idle" ? 0
+        : (pose==="run"&&o.dist!=null) ? Math.floor(o.dist/STRIDE_PX)%sh.n
+        : Math.floor((o.t||0)*sh.fps)%sh.n;
   const fb=(sh.fr&&sh.fr[f])||{top:sh.top,bot:sh.bot};                // THIS frame's content box (feet anchor)
   const targetH=HERO_TARGET_H*s*HEROSCALE, sc=targetH/sh.ch;          // scale by the sheet's median character height (stable size)
   const dw=fw*sc, dh=fh*sc;
@@ -2101,6 +2106,7 @@ function update(dt){
   P.vy+=(rising?1080:1760)*dt;
   if(P.vy>680)P.vy=680;
   P.x+=P.vx*dt; P.y+=P.vy*dt;
+  if(P.grounded)P.stride=(P.stride||0)+Math.abs(P.vx)*dt;   // ground distance — drives the leg cycle so feet don't slide
   P.x=clamp(P.x,20,lvl.len-20);
   const wasGrounded=P.grounded;
   const gy=groundAt(P.x,P.y-2+(P.dropT>0?26:0));
@@ -2326,6 +2332,10 @@ function update(dt){
         floats.push({x:e.x,y:e.y-stompTop*0.5,txt:"-"+(z2?14:20),t:0.5,size:11,c:"#7cf9a5"});
         P.ifr=Math.max(P.ifr,0.22);                                  // stomp grace — the boss can't clip you on the bounce
         if(e.hp<=0)killEnemy(e,P.face);
+      } else if(e.t==="hound"){                                      // dogs can't be stomped — landing on one gets you bitten
+        P.vy=-300; P.grounded=false;
+        floats.push({x:e.x,y:e.y-42,txt:"BITTEN!",t:0.7,size:12,c:"#ff5d73"});
+        hurtPlayer(Math.sign(P.x-e.x)||1);
       } else {
         killEnemy(e,P.face); if(!e.summoned)lvScore+=150; SFX.stomp();
         floats.push({x:e.x,y:e.y-66,txt:"STOMP!",t:0.6,size:12,c:"#7cf9a5"});
@@ -3108,7 +3118,7 @@ function render(){
   }
   if(!P.dead&&!(P.ifr>0&&Math.floor(performance.now()/80)%2===0)){
     const hopts={t,face:P.face,pose:P.grounded?(Math.abs(P.vx)>40?"run":"idle"):"jump",
-      gunType:loadoutType||0,holo:loadoutType>10,muzzle:P.muzzle>0?0.55:0,phase:t*11,squash:P.squash||0};
+      gunType:loadoutType||0,holo:loadoutType>10,muzzle:P.muzzle>0?0.55:0,phase:t*11,squash:P.squash||0,dist:P.stride||0};
     drawHero(P.x,P.y,1.15,hopts);
   }
   // particles + floats
@@ -3513,7 +3523,7 @@ function drawGuide(){
   head(R2,z,"🎮 CONTROLS — DESKTOP"); z+=lh;
   line(R2,z,"A / D — move    SPACE — jump (hold = higher)"); z+=lh;
   line(R2,z,"CLICK — fire    S — drop through ledges"); z+=lh;
-  line(R2,z,"Q — swap gun    stomp heads to kill"); z+=lh+8;
+  line(R2,z,"Q — swap gun    stomp heads to kill (never hounds — they bite)"); z+=lh+8;
   head(R2,z,"📱 CONTROLS — PHONE"); z+=lh;
   line(R2,z,"hold LEFT side & slide — move (virtual stick)"); z+=lh;
   line(R2,z,"tap RIGHT side — jump · swipe ↓ — drop · auto-fire"); z+=lh;
