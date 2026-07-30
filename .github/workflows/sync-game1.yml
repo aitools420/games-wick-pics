@@ -6,10 +6,9 @@ name: Sync game1 from upstream
 # Post-processing exists because a plain copy would regress the site:
 #   1. the mobile-wallet deeplink upstream points at pepe-zero.vercel.app
 #   2. upstream ships icon-192 and apple-touch-icon as 512x512 115KB copies
-#   3. sprite sheets are JPEGs behind .png names, so the game rebuilds their
-#      transparency in the browser on every load - we bake it into WebP instead
-# All re-applied by tools/apply_local_patches.py, which exits non-zero if an
-# upstream change moved a patch target, so a half-patched game never ships.
+# Applied by tools/apply_local_patches.py, which exits non-zero if an upstream
+# change moved a patch target, so a half-patched game never ships.
+# Sprites are NOT touched: upstream ships pre-keyed WebP with real alpha.
 
 on:
   schedule:
@@ -50,18 +49,25 @@ jobs:
       - name: Re-apply local patches
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet pillow numpy scipy
+          python3 -m pip install --quiet pillow
           python3 tools/apply_local_patches.py
 
       - name: Sanity-check before committing
         run: |
           set -euo pipefail
-          n=$(ls game1/play/hero_*.webp 2>/dev/null | wc -l)
-          test "$n" -eq 11 || { echo "expected 11 baked sheets, found $n"; exit 1; }
-          grep -q 'file:"hero_walk.webp"' game1/play/index.html || { echo "sheet refs not repointed"; exit 1; }
-          test ! -e game1/play/hero_walk.png || { echo "unbaked .png sheet left behind"; exit 1; }
-          grep -q 'games.wick.pics/game1' game1/play/index.html || { echo "deeplink not patched"; exit 1; }
-          echo "sanity OK: 11 baked sheets, refs repointed, deeplink patched"
+          python3 - <<'PY'
+          import re, os, sys
+          h = open("game1/play/index.html", encoding="utf-8").read()
+          refs = re.findall(r'file:"(hero_[a-z_]+\.[a-z]+)"', h)
+          if len(refs) != 11:
+              sys.exit(f"expected 11 sheet refs, found {len(refs)}")
+          missing = [r for r in refs if not os.path.exists(f"game1/play/{r}")]
+          if missing:
+              sys.exit(f"game references sheets that are not present: {missing}")
+          if "games.wick.pics/game1" not in h:
+              sys.exit("deeplink not patched")
+          print(f"sanity OK: {len(refs)} sheets referenced and present, deeplink patched")
+          PY
 
       - name: Commit if anything changed
         run: |
