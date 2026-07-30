@@ -319,6 +319,8 @@ function drawGunInHand(type,kick,holo){
    vector hero to these the moment hero_walk.png loads; missing files fall back gracefully.
    Tune frame counts / fps / HEROSCALE below if a sheet differs. */
 const HERO_SHEETS={
+  // .webp = PRE-KEYED (real alpha baked offline by the exact keyWhite pipeline) → loader skips runtime keying.
+  // Drop-in raw sheets as .png and the old flood-fill/defringe path still handles them.
   walk:{file:"hero_walk.webp",n:6,fps:12}, shoot:{file:"hero_shoot.webp",n:6,fps:16},
   idle:{file:"hero_idle.webp",n:6,fps:8}, jump:{file:"hero_jump.webp",n:6,fps:9},
   runshoot:{file:"hero_runshoot.webp",n:6,fps:14},            // (2) walk-and-fire (optional)
@@ -381,8 +383,10 @@ function contentBoxFrames(canvas,n){ // per-FRAME boxes — stops jump frames sh
       out.push(bot>top?{top,bot,ch:bot-top}:null); }
     return out; }catch(e){ return null; }
 }
+function rawCanvas(im){ const c=document.createElement("canvas"); c.width=im.naturalWidth; c.height=im.naturalHeight;
+  c.getContext("2d").drawImage(im,0,0); return c; }   // pre-keyed sheet: pixels are final, just need a readable canvas
 for(const k in HERO_SHEETS){ (function(k){ const cf=HERO_SHEETS[k], im=new Image();
-  im.onload=function(){ const c=keyWhite(im); const bx=(c.getContext)?contentBoxV(c):{top:0,bot:c.height};
+  im.onload=function(){ const c=/\.webp$/i.test(cf.file)?rawCanvas(im):keyWhite(im); const bx=(c.getContext)?contentBoxV(c):{top:0,bot:c.height};
     const hd=(c.getContext&&/pistol|rifle/.test(k))?handAnchors(c,cf.n):null;   // grip sheets: find the hand per frame + native facing
     const fr=c.getContext?contentBoxFrames(c,cf.n):null;
     const chs=fr?fr.filter(Boolean).map(b=>b.ch).sort((a,b)=>a-b):[];
@@ -2054,7 +2058,10 @@ function update(dt){
   if(state!=="play"){ shake=Math.max(0,shake-dt*2.8); flash=Math.max(0,flash-dt*3.8); bossIntro=0; } // end screens settle, never jitter
   if(state==="clear"){ clearT+=dt; return; }
   if(state==="dead"||state==="gover"){ deadT+=dt; return; }
-  if(state==="ending"){ endT+=dt; return; }
+  if(state==="ending"){ const pe=endT; endT+=dt;
+    if(pe<0.9&&endT>=0.9)SFX.boom();                        // the lock dies
+    if(pe<3.0&&endT>=3.0)SFX.tel();                         // title slam
+    return; }
   if(state!=="play")return;
   if(hitstop>0){ hitstop-=dt; return; }
   lvTime+=dt; introT=Math.max(0,introT-dt);
@@ -2307,7 +2314,13 @@ function update(dt){
     const stompTop=big2?-92:z2?-72:-64;
     const contactW=e.t==="heavy"?27:big2?40:z2?26:e.t==="shield"?27:20;
     if(!P.dead&&Math.abs(P.x-e.x)<stompW&&P.y<e.y-8&&P.y>e.y+stompTop&&P.vy>60){
-      if(big2||z2){ e.hp-=z2?14:20; e.hurtT=0.12; P.vy=-380; P.grounded=false; SFX.stomp();
+      if(big2&&e.stomped){                                           // the Butcher eats ONE stomp — the next jumper gets grabbed and hurled
+        const thr=Math.sign(P.x-e.x)||-1;
+        P.vx=thr*720; P.vy=-460; P.grounded=false; P.ifr=Math.max(P.ifr,0.9);
+        floats.push({x:e.x,y:e.y-104,txt:"THROWN!",t:0.8,size:13,c:"#ff5d73"});
+        SFX.boom(); shake=Math.max(shake,0.5);
+      } else if(big2||z2){ e.hp-=z2?14:20; e.hurtT=0.12; P.vy=-380; P.grounded=false; SFX.stomp();
+        if(big2)e.stomped=true;
         floats.push({x:e.x,y:e.y-stompTop*0.5,txt:"-"+(z2?14:20),t:0.5,size:11,c:"#7cf9a5"});
         P.ifr=Math.max(P.ifr,0.22);                                  // stomp grace — the boss can't clip you on the bounce
         if(e.hp<=0)killEnemy(e,P.face);
@@ -2414,7 +2427,7 @@ addEventListener("keydown",e=>{ if(e.repeat)return; keys.add(e.code); audio();
   else if(state==="clear"&&e.code==="Enter")startLevel(lvIdx+1);
   else if(state==="dead"&&(e.code==="Enter"||e.code==="KeyR"))
     respawnLevel();
-  else if(state==="ending"&&e.code==="Enter")state="menu";
+  else if(state==="ending"&&e.code==="Enter"){ if(endT<4.6)endT=4.6; else state="menu"; }
   else if(state==="gover"&&(e.code==="Enter"||e.code==="KeyR"))startGauntlet();
   else if(state==="gover"&&e.code==="Escape"){ gauntlet=false; lvIdx=preGLvIdx; state="menu"; }
   else if(state==="board"&&e.code==="Escape")state="menu";
@@ -2480,7 +2493,7 @@ cv.addEventListener("pointerdown",e=>{ audio(); const p=ptr(e); mouse.x=p.x; mou
   for(const b of BTNS){ if(p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h){ b.fn(); return; } }
   if(state==="clear"&&clearT>1.2)startLevel(lvIdx+1);      // fire-mashers can't skip the results screen
   else if(state==="dead"&&deadT>0.6)respawnLevel();        // or click through the death screen
-  else if(state==="ending"&&endT>1)state="menu";
+  else if(state==="ending"&&endT>1){ if(endT<4.6)endT=4.6; else state="menu"; }  // first tap skips the cinematic, second leaves
   else if(state==="board")state="menu";
   else if(state==="guide")state="menu";
 });
@@ -3326,30 +3339,99 @@ function drawGover(){
   }
   g.restore();
 }
-function drawEnding(){
-  const a=clamp(endT*1.4,0,1);
-  g.fillStyle="rgba(0,0,0,"+(a*0.82)+")"; g.fillRect(0,0,W,H);
-  g.save(); g.globalAlpha=a; g.textAlign="center";
-  g.font="900 46px Verdana"; g.fillStyle="#e8b04a"; g.fillText("BISCUIT IS SAFE",W/2,150);
-  drawHero(W/2-26,320,1.7,{t:performance.now()/1000,face:1,pose:"idle",gunType:loadoutType||0});
-  drawDog(W/2+40,320,-1,{});
-  const pulse=0.8+0.2*Math.sin(performance.now()/300);
-  g.globalAlpha=a*pulse; g.fillStyle="#ff6b8a";
-  const hx=W/2+6,hy=252;
-  g.beginPath(); g.moveTo(hx,hy+4); g.bezierCurveTo(hx-8,hy-4,hx-8,hy+6,hx,hy+12); g.bezierCurveTo(hx+8,hy+6,hx+8,hy-4,hx,hy+4); g.fill();
-  g.globalAlpha=a;
-  g.font="bold 14px Verdana"; g.fillStyle="#cfd6e0";
-  g.fillText("Ten contracts. "+(campDeaths===0?"Not a scratch.":campDeaths+" deaths on the ledger.")+" One friend back home.",W/2,382);
-  g.font="900 14px Verdana"; g.fillStyle="#ffd75e";
-  g.fillText("CAREER SCORE  "+totalScore().toLocaleString(),W/2,412);
-  g.font="bold 11px Verdana"; g.fillStyle="#7cf9a5";
-  g.fillText("A PEPE WICK STORY — powered by $WICK on PulseChain",W/2,438);
+function drawEnding(){ // THE FINISHER — staged rescue cinematic, all deterministic from endT (update() is paused here)
+  const T=endT, now=performance.now()/1000;
+  const ez=x=>{ x=clamp(x,0,1); return x*x*(3-2*x); };
+  const GRD=386, px=W/2-140, cx=W/2+168;
+  // stage: fade to a clean night stage (opaque — the level must not bleed through) + dawn at the horizon
+  g.fillStyle="rgba(4,6,12,"+clamp(T*2.2,0,1)+")"; g.fillRect(0,0,W,H);
+  if(T>0.45){ g.save(); g.globalAlpha=clamp((T-0.45)*2,0,1);
+    for(let i=0;i<40;i++){ const sx=(i*173.3)%W, sy=((i*97.7)%230)+18;
+      g.globalAlpha=clamp((T-0.45)*2,0,1)*(0.25+0.5*((i*37)%10)/10);
+      g.fillStyle="#cfd8ea"; g.fillRect(sx,sy,1.6,1.6); }
+    g.restore(); }
+  const dawn=0.4*ez((T-2.6)/2.6);
+  if(dawn>0.01){ const dg=g.createLinearGradient(0,150,0,GRD+8);
+    dg.addColorStop(0,"rgba(255,150,84,0)"); dg.addColorStop(1,"rgba(255,150,84,"+dawn+")");
+    g.fillStyle=dg; g.fillRect(0,150,W,GRD-142); }
+  g.save();
+  // moon
+  g.globalAlpha=0.85; g.fillStyle="#e8ecf4"; g.beginPath(); g.arc(W/2+318,96,30,0,TAU); g.fill();
+  g.globalAlpha=0.16; g.fillStyle="#cfe0ff"; g.beginPath(); g.arc(W/2+318,96,52,0,TAU); g.fill();
+  g.globalAlpha=1;
+  // ground
+  g.strokeStyle="rgba(160,180,210,0.28)"; g.lineWidth=2;
+  g.beginPath(); g.moveTo(W/2-330,GRD+2); g.lineTo(W/2+330,GRD+2); g.stroke();
+  g.fillStyle="rgba(120,150,190,0.05)"; g.fillRect(W/2-330,GRD+3,660,26);
+  // ---- THE CAGE (BISCUIT's prison) ----
+  const cw=118,chh=140, cl=cx-cw/2;
+  g.strokeStyle="#3a4152"; g.lineWidth=5;
+  rr(cl,GRD-chh,cw,chh,7); g.stroke();
+  g.strokeStyle="#2c3242"; g.lineWidth=3;
+  for(let i=1;i<4;i++){ const bx=cl+8+i*((cw-16)/4)-((cw-16)/8);   // left half fixed bars
+    if(bx<cx){ g.beginPath(); g.moveTo(bx,GRD-chh+6); g.lineTo(bx,GRD-4); g.stroke(); } }
+  { // right-half door: BISCUIT bursts it clean off the hinges — it tumbles right and lands flat
+    const fall=Math.min(0.95,Math.max(0,T-1.1));
+    const dx0=cl+cw*0.75+fall*116, dy0=Math.min(GRD-12,GRD-chh/2+fall*fall*340), rot=fall*3.4;
+    g.save(); g.translate(dx0,dy0); g.rotate(Math.min(rot,1.62));
+    g.strokeStyle="#2c3242"; g.lineWidth=3;
+    for(let i=0;i<3;i++){ const bx=-20+i*17; g.beginPath(); g.moveTo(bx,-chh/2+8); g.lineTo(bx,chh/2-6); g.stroke(); }
+    g.strokeStyle="#3a4152"; g.lineWidth=4; g.strokeRect(-cw/4-2,-chh/2+4,cw/2-6,chh-8);
+    g.restore(); }
+  // the lock — gold, then shattered off at T=0.9
+  if(T<0.9){ g.fillStyle="#e8b04a"; rr(cx-7,GRD-chh/2-8,14,16,3); g.fill();
+    g.strokeStyle="#e8b04a"; g.lineWidth=3; g.beginPath(); g.arc(cx,GRD-chh/2-10,6,Math.PI,0); g.stroke(); }
+  else if(T<2.2){ const fall=T-0.9;                          // it tumbles to the floor
+    g.save(); g.globalAlpha=clamp(1-(T-1.6)/0.6,0,1); g.translate(cx+fall*40,Math.min(GRD-6,GRD-chh/2-8+fall*fall*420)); g.rotate(fall*7);
+    g.fillStyle="#e8b04a"; rr(-7,-8,14,16,3); g.fill(); g.restore(); }
+  // lock-break sparks
+  if(T>0.9&&T<1.5){ const sp=(T-0.9)/0.6; g.save(); g.globalAlpha=1-sp;
+    g.strokeStyle="#ffd75e"; g.lineWidth=2;
+    for(let i=0;i<14;i++){ const an=i/14*TAU, r0=8+sp*84;
+      g.beginPath(); g.moveTo(cx+Math.cos(an)*r0,GRD-chh/2+Math.sin(an)*r0);
+      g.lineTo(cx+Math.cos(an)*(r0+9),GRD-chh/2+Math.sin(an)*(r0+9)); g.stroke(); }
+    g.restore(); }
+  if(T>0.9&&T<1.12){ g.save(); g.globalAlpha=0.5*(1-(T-0.9)/0.22); g.fillStyle="#fff2c8"; g.fillRect(0,0,W,H); g.restore(); }
+  // ---- BISCUIT: burst from the cage, sprint, leap to Pepe ----
+  const runP=ez((T-1.6)/1.0), leapP=clamp((T-2.6)/0.5,0,1);
+  let dxx=cx-14+(px+96-(cx-14))*runP, dyy=GRD, dface=-1, dwalk=T>1.6&&T<2.6;
+  if(T>=2.6){ dxx=px+96+((px+46)-(px+96))*leapP; dyy=GRD-Math.sin(leapP*Math.PI)*52; dwalk=false; }
+  // ---- PEPE: waiting, arms-open beat is sold by the heart pulse ----
+  drawHero(px,GRD,1.5,{t:now,face:1,pose:"idle",gunType:loadoutType||0});
+  if(T>1.05)drawDog(dxx,dyy,dface,{walk:dwalk,s:1.35});
+  // hearts rise once BISCUIT lands on him
+  if(T>3.1){ g.save();
+    for(let i=0;i<8;i++){ const ph=(T-3.1-i*0.3)/1.7; if(ph<0||ph>1)continue;
+      const hx2=px+40+Math.sin(i*2.6)*38, hy2=GRD-70-ph*95;
+      g.globalAlpha=(1-ph)*0.9; g.fillStyle="#ff6b8a";
+      g.beginPath(); g.moveTo(hx2,hy2+3); g.bezierCurveTo(hx2-7,hy2-4,hx2-7,hy2+5,hx2,hy2+10);
+      g.bezierCurveTo(hx2+7,hy2+5,hx2+7,hy2-4,hx2,hy2+3); g.fill(); }
+    g.restore(); }
+  // letterbox
+  const lb=54*ez(T/0.7); g.fillStyle="#000"; g.fillRect(0,0,W,lb); g.fillRect(0,H-lb,W,lb);
+  // ---- TEXT BEATS ----
+  g.textAlign="center";
+  if(T>0.5){ g.globalAlpha=ez((T-0.5)/0.6); g.font="italic 13px Georgia,serif"; g.fillStyle="#e8b04a";
+    g.fillText("C O N T R A C T   T E N   —   C O M P L E T E",W/2,88); g.globalAlpha=1; }
+  if(T>3.0){ const sl=ez((T-3.0)/0.45), sc=1.6-0.6*sl;      // title slam, boss-intro style
+    g.save(); g.translate(W/2,158); g.scale(sc,sc); g.globalAlpha=sl;
+    g.shadowColor="#ffd75e"; g.shadowBlur=30;
+    g.font="900 46px Verdana"; g.fillStyle="#e8b04a"; g.fillText("BISCUIT IS SAFE",0,0);
+    g.restore(); }
+  if(T>3.9){ g.globalAlpha=ez((T-3.9)/0.6);
+    g.font="bold 14px Verdana"; g.fillStyle="#cfd6e0";
+    g.fillText("Ten contracts. "+(campDeaths===0?"Not a scratch.":campDeaths+" deaths on the ledger.")+" One friend back home.",W/2,430);
+    g.font="900 14px Verdana"; g.fillStyle="#ffd75e";
+    g.fillText("CAREER SCORE  "+totalScore().toLocaleString(),W/2,458);
+    g.font="bold 11px Verdana"; g.fillStyle="#7cf9a5";
+    g.fillText("A PEPE WICK STORY — powered by $WICK on PulseChain",W/2,481);
+    g.globalAlpha=1; }
   BTNS.length=0;
-  if(endT>1){
-    menuBtn(W/2-252,458,158,34,"📸 SHARE",()=>shareScore(),"#7cf9a5");
-    menuBtn(W/2-86,458,184,34,lbBusy?"SIGNING…":"🏆 SUBMIT SCORE",()=>submitScore(),"#ffd75e");
-    menuBtn(W/2+106,458,146,34,"MENU",()=>{state="menu";},"#fff");
-    if(lbMsg){ g.font="bold 11px Verdana"; g.fillStyle=lbMsg.startsWith("✓")||lbMsg.startsWith("📸")?"#7cf9a5":"#8a93a5"; g.fillText(lbMsg,W/2,516); }
+  if(T>4.6){
+    menuBtn(W/2-252,494,158,30,"📸 SHARE",()=>shareScore(),"#7cf9a5");
+    menuBtn(W/2-86,494,184,30,lbBusy?"SIGNING…":"🏆 SUBMIT SCORE",()=>submitScore(),"#ffd75e");
+    menuBtn(W/2+106,494,146,30,"MENU",()=>{state="menu";},"#fff");
+    if(lbMsg){ g.font="bold 11px Verdana"; g.fillStyle=lbMsg.startsWith("✓")||lbMsg.startsWith("📸")?"#7cf9a5":"#8a93a5"; g.fillText(lbMsg,W/2,534); }
   }
   g.restore();
 }
