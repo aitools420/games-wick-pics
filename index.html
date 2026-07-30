@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+/* Upgrade to https before anything else: the gate needs crypto.subtle, which
+   browsers withhold from insecure origins. Localhost is exempt for testing. */
+(function(){var h=location.hostname;
+  if(location.protocol==="http:"&&h!=="localhost"&&h!=="127.0.0.1")
+    location.replace("https://"+location.host+location.pathname+location.search+location.hash);})();
+</script>
 <title>Arcade Alley — games.wick.pics</title>
 <meta name="description" content="Three cabinets in the hall. PEPE WICK is built. The other two are still being wired.">
 <meta name="theme-color" content="#0a0a12">
