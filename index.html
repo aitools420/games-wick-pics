@@ -1,445 +1,510 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Portable Game NFTs — design notes</title>
-<meta name="description" content="Design notes for portable game NFTs: the token holds ownership and identity, everything else is allowed to change. Honest architecture, stated limits, no future promises.">
-<meta name="theme-color" content="#0A0D10">
-<meta property="og:title" content="Portable Game NFTs — design notes">
-<meta property="og:description" content="The NFT holds ownership and identity. Everything else is allowed to change.">
-<meta property="og:type" content="article">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcade Alley — games.wick.pics</title>
+<meta name="description" content="Three cabinets in the hall. PEPE WICK is built. The other two are still being wired.">
+<meta name="theme-color" content="#0a0a12">
+<meta property="og:title" content="Arcade Alley — games.wick.pics">
+<meta property="og:description" content="Three cabinets in the hall. PEPE WICK is built. The other two are still being wired.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://games.wick.pics/">
+<meta property="og:image" content="https://games.wick.pics/pepe-wick-screen.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://games.wick.pics/pepe-wick-screen.webp">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230a0a12'/%3E%3Ctext x='50' y='72' font-size='58' text-anchor='middle'%3E%F0%9F%95%B9%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@500;700&display=swap">
 <style>
-:root{
-  --ground:#0A0D10; --panel:#0F1419; --raise:#131A21;
-  --ink:#E4E9ED; --dim:#93A2AE; --faint:#63737F;
-  --rule:#1D262E; --rule-lit:#2A3742;
-  --lock:#E0A33E;      /* IMMUTABLE — permanent, high risk if wrong */
-  --live:#4FD1B0;      /* UPDATABLE — safe to change later */
-  --lock-bg:#E0A33E14; --live-bg:#4FD1B014;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
-body{
-  margin:0; background:var(--ground); color:var(--ink);
-  font:16.5px/1.68 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;
-}
-.wrap{max-width:1120px;margin:0 auto;padding:0 28px}
-h1,h2,h3,.lbl{font-family:Archivo,ui-sans-serif,system-ui,sans-serif}
-.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+  :root{
+    --neon-pink:#ff2a6d;
+    --neon-cyan:#05d9e8;
+    --neon-yellow:#f9f871;
+    --crt-glow:rgba(0,255,200,0.15);
+    --pepe-green:#7cf9a5;          /* the game's own accent, lifted from its HUD */
+    --faint:#5a6472;
+    --display:'Press Start 2P', ui-monospace, monospace;
+    --body:'Orbitron', system-ui, sans-serif;
+  }
 
-/* ── section scaffolding ─────────────────────────────────────────── */
-section{padding:76px 0;border-top:1px solid var(--rule)}
-section:first-of-type{border-top:none}
-.lbl{
-  font-size:11px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
-  color:var(--faint);display:flex;align-items:center;gap:12px;margin:0 0 26px
-}
-.lbl::after{content:"";flex:1;height:1px;background:var(--rule)}
-h2{font-size:clamp(23px,3vw,31px);font-weight:700;letter-spacing:-.01em;margin:0 0 14px;text-wrap:balance}
-h3{font-size:15px;font-weight:600;letter-spacing:.04em;margin:0 0 8px}
-p{margin:0 0 16px;color:var(--dim);max-width:68ch}
-p strong{color:var(--ink);font-weight:600}
+  *{margin:0;padding:0;box-sizing:border-box}
 
-/* ── hero ────────────────────────────────────────────────────────── */
-.hero{padding:104px 0 68px;position:relative;overflow:hidden}
-.hero::before{
-  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-  background-image:linear-gradient(var(--rule) 1px,transparent 1px),linear-gradient(90deg,var(--rule) 1px,transparent 1px);
-  background-size:56px 56px;opacity:.35;
-  -webkit-mask-image:radial-gradient(circle at 22% 18%,#000 0%,transparent 68%);
-          mask-image:radial-gradient(circle at 22% 18%,#000 0%,transparent 68%);
-}
-.hero .wrap{position:relative;z-index:1}
-.hero h1{
-  font-size:clamp(38px,7.4vw,80px);line-height:.98;font-weight:700;
-  letter-spacing:-.025em;margin:0 0 22px;text-wrap:balance;
-}
-.hero h1 em{font-style:normal;color:var(--faint)}
-.thesis{font-size:clamp(17px,2.1vw,21px);line-height:1.5;color:var(--ink);max-width:30ch;margin:0 0 34px;font-weight:500}
-.thesis b{color:var(--live);font-weight:600}
-.specstrip{
-  display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:3px;
-  background:var(--panel);overflow:hidden;max-width:760px
-}
-.specstrip div{padding:11px 18px;border-right:1px solid var(--rule);flex:1 1 auto}
-.specstrip div:last-child{border-right:none}
-.specstrip .k{display:block;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-bottom:3px}
-.specstrip .v{font-size:12.5px;color:var(--ink)}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(124,249,165,0.10) 0%, transparent 44%),
+      radial-gradient(ellipse at 10% 58%, rgba(255,42,109,0.07) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 58%, rgba(5,217,232,0.07) 0%, transparent 50%),
+      linear-gradient(180deg,#0a0a12 0%,#12121f 42%,#0d0d18 100%);
+    font-family:var(--body);
+    color:#e0e0e0;
+    overflow-x:hidden;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;          /* keeps the hall from stranding at the bottom */
+  }
 
-/* ── principle cards ─────────────────────────────────────────────── */
-.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
-.grid4 article{background:var(--panel);padding:24px 22px}
-.grid4 .n{font-size:11px;color:var(--faint);letter-spacing:.14em;margin-bottom:14px}
-.grid4 p{font-size:14.5px;margin:0;color:var(--dim)}
-.grid4 p b{color:var(--ink);font-weight:600}
+  /* page-wide scanlines */
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.15) 2px,rgba(0,0,0,0.15) 4px);
+    pointer-events:none;
+    z-index:1000;
+    opacity:0.4;
+  }
 
-/* ── the centrepiece split ───────────────────────────────────────── */
-.split{display:grid;grid-template-columns:1fr 1px 1fr;gap:0;margin-top:8px}
-.split .divider{background:linear-gradient(180deg,transparent,var(--rule-lit) 12%,var(--rule-lit) 88%,transparent)}
-.side{padding:30px 34px}
-.side:first-child{padding-left:0}
-.side:last-child{padding-right:0}
-.badge{
-  display:inline-flex;align-items:center;gap:8px;font-size:10.5px;font-weight:600;
-  letter-spacing:.18em;text-transform:uppercase;padding:6px 12px;border-radius:2px;margin-bottom:18px
-}
-.badge.lock{color:var(--lock);background:var(--lock-bg);border:1px solid #E0A33E38}
-.badge.live{color:var(--live);background:var(--live-bg);border:1px solid #4FD1B038}
-.side h3{font-size:19px;margin-bottom:10px}
-.side>p{font-size:14.5px;margin-bottom:20px}
-.fields{list-style:none;margin:0;padding:0}
-.fields li{
-  padding:11px 0 11px 16px;border-bottom:1px solid var(--rule);position:relative;
-  font-size:13.5px;color:var(--dim)
-}
-.fields li:last-child{border-bottom:none}
-.fields li::before{content:"";position:absolute;left:0;top:18px;width:6px;height:1px}
-.lock .fields li::before,.side.lock li::before{background:var(--lock)}
-.live .fields li::before,.side.live li::before{background:var(--live)}
-.fields code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px;color:var(--ink)}
-.risk{
-  margin-top:22px;padding:14px 16px;border-radius:3px;font-size:13px;line-height:1.55;
-  border:1px solid #E0A33E30;background:var(--lock-bg);color:#F0C689
-}
-.reassure{
-  margin-top:22px;padding:14px 16px;border-radius:3px;font-size:13px;line-height:1.55;
-  border:1px solid #4FD1B030;background:var(--live-bg);color:#8FE3CD
-}
-.dividernote{text-align:center;font-size:12px;color:var(--faint);margin:22px auto 0;max-width:56ch}
-.dividernote b{color:var(--dim);font-weight:500}
+  /* arcade floor */
+  body::after{
+    content:'';
+    position:fixed;
+    bottom:0;left:0;right:0;
+    height:180px;
+    background:linear-gradient(to top,rgba(20,20,35,0.9),transparent);
+    pointer-events:none;
+    z-index:1;
+  }
 
-/* ── stack diagram ───────────────────────────────────────────────── */
-.stack{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-top:6px}
-.layer{background:var(--panel);padding:20px 24px;display:grid;grid-template-columns:150px 1fr;gap:20px;align-items:start}
-.layer .tag{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;padding-top:3px}
-.layer .tag.lock{color:var(--lock)}
-.layer .tag.live{color:var(--live)}
-.layer .tag.game{color:var(--dim)}
-.layer p{margin:0;font-size:14px}
-.layer .what{color:var(--ink);font-size:14.5px;font-weight:600;margin-bottom:5px;display:block}
+  header{
+    text-align:center;
+    padding:2rem 1.25rem 0;
+    position:relative;
+    z-index:10;
+  }
 
-/* ── table ───────────────────────────────────────────────────────── */
-.tblwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--panel)}
-table{border-collapse:collapse;width:100%;min-width:660px;font-size:14px}
-th{
-  text-align:left;padding:14px 20px;border-bottom:1px solid var(--rule-lit);
-  font-family:Archivo,sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--faint);white-space:nowrap
-}
-td{padding:15px 20px;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--dim);line-height:1.55}
-tr:last-child td{border-bottom:none}
-td.choice{color:var(--ink);font-weight:600;width:27%}
-td.up{color:var(--live)}
-td.down{color:var(--lock)}
+  .eyebrow{
+    font-family:var(--display);
+    font-size:0.55rem;
+    letter-spacing:3px;
+    color:var(--faint);
+    margin-bottom:1.1rem;
+  }
 
-/* ── pledge ──────────────────────────────────────────────────────── */
-.pledge{
-  border:1px solid var(--rule-lit);border-left:3px solid var(--lock);border-radius:3px;
-  background:linear-gradient(180deg,var(--raise),var(--panel));padding:36px 40px
-}
-.pledge .lbl{margin-bottom:18px}
-.pledge blockquote{
-  margin:0 0 18px;font-family:Archivo,sans-serif;font-size:clamp(18px,2.4vw,24px);
-  line-height:1.42;color:var(--ink);font-weight:500;text-wrap:balance
-}
-.pledge p{font-size:14px;margin:0;max-width:74ch}
-.wheres{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
-.wheres span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);border:1px solid var(--rule);padding:5px 11px;border-radius:2px}
+  h1{
+    font-family:var(--display);
+    font-size:clamp(1.3rem,4vw,2.4rem);
+    background:linear-gradient(90deg,var(--neon-cyan),var(--neon-pink),var(--neon-yellow));
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    color:var(--neon-cyan);          /* fallback if background-clip is unsupported */
+    text-shadow:0 0 30px rgba(5,217,232,0.35);
+    letter-spacing:2px;
+    line-height:1.35;
+    padding-bottom:0.15em;
+  }
 
-/* ── rule list ───────────────────────────────────────────────────── */
-.rules{list-style:none;margin:0;padding:0;display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
-.rules li{background:var(--panel);padding:17px 22px;font-size:14.5px;color:var(--dim);display:flex;gap:14px;align-items:baseline}
-.rules li b{color:var(--ink);font-weight:600}
-.rules .mk{color:var(--live);font-size:11px;letter-spacing:.1em;flex:0 0 auto;min-width:60px}
-.rules .mk.no{color:var(--lock)}
+  .tagline{
+    margin-top:0.8rem;
+    font-size:0.82rem;
+    color:#8899aa;
+    letter-spacing:1.5px;
+  }
 
-/* ── precedents ──────────────────────────────────────────────────── */
-.refs{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
-.refs article{background:var(--panel);padding:22px}
-.refs h3{color:var(--ink);margin-bottom:4px;font-size:16px}
-.refs .role{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--live);margin-bottom:11px}
-.refs p{font-size:13.5px;margin:0}
+  /* ---------- the hall ---------- */
+  .hall{
+    display:flex;
+    justify-content:center;
+    align-items:flex-end;
+    gap:clamp(1rem,3.5vw,3rem);
+    padding:2.4rem 1.25rem 1.5rem;
+    position:relative;
+    z-index:5;
+  }
 
-/* ── considerations ──────────────────────────────────────────────── */
-.cons{columns:2;column-gap:44px;list-style:none;padding:0;margin:0}
-.cons li{
-  break-inside:avoid;padding:0 0 14px 20px;position:relative;font-size:14.5px;color:var(--dim);margin-bottom:2px
-}
-.cons li::before{content:"";position:absolute;left:0;top:11px;width:7px;height:1px;background:var(--rule-lit)}
-.cons li b{color:var(--ink);font-weight:600;display:block;font-size:13.5px;margin-bottom:2px}
+  /* a slot = one cabinet plus its floor plate */
+  .slot{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .slot.empty{transform:translateY(16px)}
 
-/* ── storage / frontend two-up ───────────────────────────────────── */
-.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px}
-.two section{border:none;padding:0}
-.two article{background:var(--panel);padding:28px}
-.two h3{font-size:16px;margin-bottom:12px}
-.two ul{margin:0;padding-left:18px}
-.two li{font-size:14px;color:var(--dim);margin-bottom:9px;line-height:1.55}
-.two li:last-child{margin-bottom:0}
+  /* ---------- cabinet ---------- */
+  .cabinet{
+    width:240px;
+    position:relative;
+    z-index:0;                       /* stacking context so the side panels stay behind */
+    transition:transform .35s cubic-bezier(.34,1.56,.64,1), filter .3s;
+    transform-origin:bottom center;
+  }
+  .slot.lit .cabinet{width:320px}
+  .slot.empty .cabinet{filter:brightness(.72) saturate(.55)}
 
-footer{border-top:1px solid var(--rule);padding:38px 0 60px;color:var(--faint);font-size:12.5px}
-footer p{color:var(--faint);font-size:12.5px;max-width:74ch;margin:0 0 8px}
+  .slot.lit .cabinet:hover,.slot.lit .cabinet:focus-visible{transform:translateY(-14px) scale(1.02)}
+  .slot.empty .cabinet:hover,.slot.empty .cabinet:focus-visible{filter:brightness(.88) saturate(.72);transform:translateY(-6px)}
+  .cabinet:focus-visible{outline:2px solid var(--neon-cyan);outline-offset:10px;border-radius:8px}
 
-@media(max-width:820px){
-  .split{grid-template-columns:1fr}
-  .split .divider{height:1px;width:100%;background:var(--rule-lit);margin:14px 0}
-  .side{padding:22px 0}
-  .cons{columns:1}
-  .layer{grid-template-columns:1fr;gap:8px}
-  section{padding:56px 0}
-  .pledge{padding:26px 22px}
-}
+  /* marquee */
+  .marquee{
+    height:44px;
+    background:linear-gradient(180deg,#111 0%,#222 100%);
+    border:3px solid #333;
+    border-bottom:none;
+    border-radius:6px 6px 0 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    overflow:hidden;
+    box-shadow:inset 0 0 15px rgba(0,0,0,.8),0 -4px 15px rgba(0,0,0,.5);
+  }
+
+  .lit .marquee::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);
+    animation:shine 4.5s infinite;
+  }
+
+  .marquee-text{
+    font-family:var(--display);
+    font-size:0.66rem;
+    letter-spacing:1px;
+    z-index:2;
+    text-shadow:0 0 8px currentColor,0 0 18px currentColor;
+  }
+  .lit .marquee-text{color:var(--pepe-green);animation:pulse-glow 2.6s ease-in-out infinite}
+  .empty .marquee-text{color:#4d5866;text-shadow:none}
+
+  /* bezel */
+  .bezel{
+    background:linear-gradient(180deg,#1f1f1f,#151515);
+    padding:14px 12px 10px;
+    border:4px solid #2a2a2a;
+    border-top:none;
+    position:relative;
+    box-shadow:inset 0 0 20px rgba(0,0,0,.9),0 8px 20px rgba(0,0,0,.6);
+  }
+  .lit .bezel{box-shadow:inset 0 0 20px rgba(0,0,0,.9),0 8px 28px rgba(124,249,165,.10)}
+
+  /* CRT screen — 16:9 so the game frame is never stretched */
+  .screen{
+    aspect-ratio:16/9;
+    background:#070a14;
+    border-radius:3px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:inset 0 0 40px rgba(0,255,200,.08),0 0 20px var(--crt-glow);
+  }
+
+  .screen img{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+
+  /* screen scanlines */
+  .screen::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.16),rgba(0,0,0,.16) 1px,transparent 1px,transparent 3px);
+    z-index:10;
+    pointer-events:none;
+    opacity:.55;
+  }
+
+  /* CRT curvature vignette */
+  .screen::after{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:radial-gradient(ellipse at center,transparent 48%,rgba(0,0,0,.58) 100%);
+    z-index:9;
+    pointer-events:none;
+  }
+
+  /* attract-mode screen for the unbuilt cabinets */
+  .soon{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    z-index:3;
+    background:radial-gradient(ellipse at center,#0d1320 0%,#070a10 100%);
+  }
+  .soon-text{
+    font-family:var(--display);
+    font-size:0.6rem;
+    letter-spacing:1px;
+    color:var(--neon-cyan);
+    text-shadow:0 0 10px rgba(5,217,232,.55);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .cursor{
+    display:inline-block;
+    width:7px;
+    height:11px;
+    background:var(--neon-cyan);
+    box-shadow:0 0 8px var(--neon-cyan);
+    animation:blink 1.1s step-end infinite;
+  }
+  .soon-sub{
+    font-family:var(--display);
+    font-size:0.42rem;
+    letter-spacing:2px;
+    color:#46525f;
+  }
+
+  /* control panel */
+  .control-panel{
+    background:linear-gradient(180deg,#2a2a2a 0%,#1a1a1a 100%);
+    height:88px;
+    border:4px solid #333;
+    border-top:none;
+    border-radius:0 0 8px 8px;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-around;
+    padding:0 15px;
+    box-shadow:inset 0 8px 15px rgba(0,0,0,.5),0 10px 25px rgba(0,0,0,.5);
+  }
+
+  .joystick{
+    width:34px;height:34px;
+    background:radial-gradient(circle at 35% 35%,#555,#222);
+    border-radius:50%;
+    border:3px solid #111;
+    position:relative;
+    box-shadow:0 4px 0 #0a0a0a,inset 0 2px 4px rgba(255,255,255,.15);
+    transition:transform .15s;
+  }
+  .joystick::before{
+    content:'';
+    position:absolute;
+    top:-18px;left:50%;
+    transform:translateX(-50%);
+    width:10px;height:22px;
+    background:linear-gradient(90deg,#333,#555,#333);
+    border-radius:4px 4px 2px 2px;
+    box-shadow:0 2px 4px rgba(0,0,0,.6);
+  }
+  .joystick::after{
+    content:'';
+    position:absolute;
+    top:-26px;left:50%;
+    transform:translateX(-50%);
+    width:18px;height:12px;
+    background:radial-gradient(circle at 40% 40%,#e74c3c,#c0392b);
+    border-radius:50%;
+    box-shadow:0 2px 4px rgba(0,0,0,.5);
+  }
+  .cabinet:hover .joystick{transform:rotate(-12deg) translateY(-2px)}
+
+  .buttons{display:flex;gap:10px}
+  .btn{
+    width:21px;height:21px;
+    border-radius:50%;
+    border:2px solid #111;
+    box-shadow:0 3px 0 #0a0a0a,inset 0 1px 3px rgba(255,255,255,.25);
+    transition:transform .1s,box-shadow .1s;
+  }
+  .cabinet:hover .btn{transform:translateY(2px);box-shadow:0 1px 0 #0a0a0a,inset 0 1px 3px rgba(0,0,0,.4)}
+  .btn.red{background:radial-gradient(circle at 35% 30%,#ff6b6b,#c0392b)}
+  .btn.blue{background:radial-gradient(circle at 35% 30%,#74b9ff,#0984e3)}
+  .btn.yellow{background:radial-gradient(circle at 35% 30%,#ffeaa7,#fdcb6e)}
+  .btn.green{background:radial-gradient(circle at 35% 30%,#55efc4,#00b894)}
+
+  .coin-slot{
+    position:absolute;
+    bottom:11px;right:17px;
+    width:18px;height:8px;
+    background:#111;
+    border:1px solid #333;
+    border-radius:1px;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.8);
+  }
+
+  /* cabinet depth — bounded to the cabinet body, never below it */
+  .side-left,.side-right{
+    position:absolute;
+    top:44px;
+    bottom:0;
+    width:12px;
+    background:linear-gradient(180deg,#222,#111);
+    z-index:-1;
+  }
+  .side-left{left:-12px;border-radius:4px 0 0 8px;box-shadow:-4px 0 10px rgba(0,0,0,.4)}
+  .side-right{right:-12px;border-radius:0 4px 8px 0;box-shadow:4px 0 10px rgba(0,0,0,.4)}
+
+  /* floor plate — sits outside the cabinet so it never lifts with it */
+  .plate{
+    margin-top:1.3rem;
+    text-align:center;
+    font-family:var(--display);
+    font-size:0.45rem;
+    letter-spacing:1.5px;
+    line-height:2;
+    color:var(--faint);
+  }
+  .slot.lit .plate{color:#7d8b99}
+  .plate b{color:var(--pepe-green);font-weight:400}
+
+  /* coin feedback */
+  .coin-pop{
+    position:absolute;
+    top:48%;left:50%;
+    transform:translate(-50%,-50%) scale(0);
+    font-family:var(--display);
+    font-size:0.62rem;
+    color:var(--neon-yellow);
+    text-shadow:0 0 15px var(--neon-yellow);
+    z-index:50;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+  .cabinet.clicked .coin-pop{animation:coin-fade 1.15s forwards}
+
+  footer{
+    text-align:center;
+    padding:1.9rem 1.25rem 2rem;
+    font-family:var(--display);
+    font-size:0.46rem;
+    color:#48515e;
+    letter-spacing:2px;
+    line-height:2.2;
+    position:relative;
+    z-index:10;
+  }
+
+  @keyframes shine{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
+  @keyframes pulse-glow{0%,100%{opacity:1;filter:brightness(1)}50%{opacity:.88;filter:brightness(1.28)}}
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  @keyframes coin-fade{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-160%) scale(1.15)}}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:1040px){
+    .cabinet{width:200px}
+    .slot.lit .cabinet{width:260px}
+  }
+  @media (max-width:820px){
+    .hall{flex-wrap:wrap;align-items:center;gap:2.4rem}
+    .slot.lit{order:-1}
+    .slot.lit .cabinet{width:min(340px,84vw)}
+    .cabinet{width:min(210px,40vw)}
+    .slot.empty{transform:none}
+  }
+  @media (max-width:420px){
+    .cabinet{width:min(240px,74vw)}
+    .slot.empty .cabinet{filter:brightness(.78) saturate(.62)}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    .cursor{opacity:1}
+  }
 </style>
 </head>
 <body>
 
-<header class="hero">
-  <div class="wrap">
-    <h1>Portable<br>Game <em>NFTs</em></h1>
-    <p class="thesis">The token holds ownership and identity. <b>Everything else is allowed to change.</b></p>
-    <div class="specstrip mono">
-      <div><span class="k">Standard</span><span class="v">ERC-1155</span></div>
-      <div><span class="k">Storage</span><span class="v">IPFS / Arweave</span></div>
-      <div><span class="k">Stats</span><span class="v">Off-token, updatable</span></div>
-      <div><span class="k">Guarantee</span><span class="v">Game&nbsp;1 only</span></div>
-      <div><span class="k">Status</span><span class="v">Design notes</span></div>
-    </div>
-  </div>
+<header>
+  <p class="eyebrow">GAMES.WICK.PICS</p>
+  <h1>ARCADE ALLEY</h1>
+  <p class="tagline">Three cabinets in the hall. One of them is finished.</p>
 </header>
 
-<section>
-  <div class="wrap">
-    <p class="lbl">Core principle</p>
-    <div class="grid4">
-      <article>
-        <p class="n mono">01</p>
-        <p>The NFT carries <b>immutable ownership and core identity</b> — nothing else.</p>
-      </article>
-      <article>
-        <p class="n mono">02</p>
-        <p>Exact stats, balance, visuals and abilities live in <b>separate, updatable systems</b>.</p>
-      </article>
-      <article>
-        <p class="n mono">03</p>
-        <p>Portability is a <b>bonus, never a promise</b>.</p>
-      </article>
-      <article>
-        <p class="n mono">04</p>
-        <p>Every game must <b>stand completely on its own</b>.</p>
-      </article>
-    </div>
-  </div>
-</section>
+<main class="hall">
 
-<section>
-  <div class="wrap">
-    <p class="lbl">The architecture</p>
-    <h2>One line decides everything: what is welded on, and what is free to move.</h2>
-    <p>Anything to the left of it is permanent the moment a token is minted, and a future game can only honour it, reinterpret it, or ignore it. Anything to the right can be rebalanced, re-skinned or replaced forever. The discipline is simply keeping as little as possible on the left.</p>
-
-    <div class="split">
-      <div class="side lock">
-        <span class="badge lock">Immutable · welded on</span>
-        <h3>What the token stores</h3>
-        <p>Chosen once, at mint, for the lifetime of the asset.</p>
-        <ul class="fields">
-          <li>Token standard — <code>ERC-1155</code>, for batch transfers and gas efficiency</li>
-          <li>Core identity — <code>weapon_class</code> / <code>item_type</code></li>
-          <li><code>rarity_tier</code> and a unique ID</li>
-          <li>Base visual reference — an IPFS hash, nothing more</li>
-          <li>Ownership and transfer rules</li>
-          <li>Light abstract tiers — <code>fire_rate_tier</code>, <code>damage_multiplier_tier</code>, <code>special_tag</code></li>
-        </ul>
-        <p class="risk"><b>Risk:</b> once minted these cannot be changed. A future game's only options are to honour them, reinterpret them, or ignore them entirely.</p>
+  <!-- empty slot -->
+  <div class="slot empty">
+    <div class="cabinet" tabindex="0" role="group" aria-label="Empty cabinet — coming soon">
+      <div class="side-left"></div><div class="side-right"></div>
+      <div class="marquee"><span class="marquee-text">?</span></div>
+      <div class="bezel">
+        <div class="screen">
+          <div class="soon">
+            <span class="soon-text">COMING SOON<i class="cursor"></i></span>
+            <span class="soon-sub">CABINET 01</span>
+          </div>
+        </div>
       </div>
-
-      <div class="divider"></div>
-
-      <div class="side live">
-        <span class="badge live">Updatable · free to move</span>
-        <h3>What lives outside it</h3>
-        <p>A stats and compatibility layer, or ordinary game logic.</p>
-        <ul class="fields">
-          <li>Exact numbers — damage, fire rate, recoil, handling</li>
-          <li>Balance, tuning and every future rebalance</li>
-          <li>Art, animation and visual effects, per game</li>
-          <li>Abilities, perks and interactions</li>
-          <li>Engine-specific data for side-scroller, forward-scroller or 3D FPS</li>
-          <li>A map from <code>token_id</code> → current values</li>
-        </ul>
-        <p class="reassure"><b>Why it is safe:</b> anything here can be corrected after launch. A balance mistake costs a patch, not the asset.</p>
+      <div class="control-panel">
+        <div class="joystick"></div>
+        <div class="buttons"><span class="btn blue"></span><span class="btn red"></span></div>
+        <div class="coin-slot"></div>
       </div>
+      <span class="coin-pop">NOT WIRED YET</span>
     </div>
-    <p class="dividernote">The divider <b>is</b> the architecture. Move a number to the left and you have promised it forever; leave it on the right and every future title can still use the item.</p>
+    <p class="plate">SLOT OPEN</p>
   </div>
-</section>
 
-<section>
-  <div class="wrap">
-    <p class="lbl">Recommended structure · guns example</p>
-    <h2>Three layers, each replaceable except the first.</h2>
-    <div class="stack">
-      <div class="layer">
-        <span class="tag lock mono">Layer 1 · NFT</span>
-        <p><span class="what">Pure ownership token plus core identity</span>Holds who owns it, what kind of thing it is, its rarity and its base art reference. It never learns what a bullet does.</p>
+  <!-- the built one -->
+  <div class="slot lit">
+    <div class="cabinet" tabindex="0" role="group" aria-label="PEPE WICK — built, arriving here first">
+      <div class="side-left"></div><div class="side-right"></div>
+      <div class="marquee"><span class="marquee-text">PEPE WICK</span></div>
+      <div class="bezel">
+        <div class="screen">
+          <img src="pepe-wick-screen.webp" width="800" height="450"
+               alt="PEPE WICK gameplay: a pepe in a black suit under a streetlight in a neon-green city, firing at suited enemies across rooftops.">
+        </div>
       </div>
-      <div class="layer">
-        <span class="tag live mono">Layer 2 · Stats</span>
-        <p><span class="what">Updatable stats &amp; compatibility contract</span>Maps token ID to current numbers, on-chain or in game logic. Rebalancing happens here, and it can happen forever.</p>
+      <div class="control-panel">
+        <div class="joystick"></div>
+        <div class="buttons"><span class="btn green"></span><span class="btn yellow"></span><span class="btn red"></span></div>
+        <div class="coin-slot"></div>
       </div>
-      <div class="layer">
-        <span class="tag game mono">Layer 3 · Game</span>
-        <p><span class="what">Each game supplies its own art, animation and balance</span>A side-scroller, a forward-scroller and a future 3D FPS can all read the same token without any engine-specific data ever being baked into it.</p>
+      <span class="coin-pop">INSERT COIN</span>
+    </div>
+    <p class="plate">THE LILYPAD DISTRICT<br><b>TEN CONTRACTS TO GET BISCUIT BACK</b></p>
+  </div>
+
+  <!-- empty slot -->
+  <div class="slot empty">
+    <div class="cabinet" tabindex="0" role="group" aria-label="Empty cabinet — coming soon">
+      <div class="side-left"></div><div class="side-right"></div>
+      <div class="marquee"><span class="marquee-text">?</span></div>
+      <div class="bezel">
+        <div class="screen">
+          <div class="soon">
+            <span class="soon-text">COMING SOON<i class="cursor"></i></span>
+            <span class="soon-sub">CABINET 03</span>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <p class="lbl">Design compromises</p>
-    <h2>Every choice here trades permanence against freedom.</h2>
-    <div class="tblwrap">
-      <table>
-        <thead>
-          <tr><th>Choice</th><th>Upside</th><th>Downside</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="choice">Extremely generic NFT</td>
-            <td class="up">Maximum future flexibility</td>
-            <td class="down">Feels slightly less "special" in Game&nbsp;1</td>
-          </tr>
-          <tr>
-            <td class="choice">More stats baked on-chain</td>
-            <td class="up">Stronger feeling of permanence</td>
-            <td class="down">Locks balance forever; future games may have to nerf or ignore it</td>
-          </tr>
-          <tr>
-            <td class="choice">Explicit "no future guarantees" language</td>
-            <td class="up">Protects against community harassment</td>
-            <td class="down">Slightly lower launch hype and FOMO</td>
-          </tr>
-          <tr>
-            <td class="choice">Extra contracts and interfaces now</td>
-            <td class="up">Far less technical debt later</td>
-            <td class="down">Higher upfront complexity</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <div class="pledge">
-      <p class="lbl">The pledge</p>
-      <blockquote>"Utility is only guaranteed in the first game. Future titles may or may not support these NFTs. There is no obligation or timeline."</blockquote>
-      <p>Said plainly, in the same words, everywhere a buyer might look. Promising future compatibility is the one mistake that cannot be patched later — it converts every future design decision into a debt owed to people who bought expecting something else.</p>
-      <div class="wheres">
-        <span>Contract comments</span><span>This site</span><span>Whitepaper</span><span>Marketplace listing</span>
+      <div class="control-panel">
+        <div class="joystick"></div>
+        <div class="buttons"><span class="btn yellow"></span><span class="btn green"></span></div>
+        <div class="coin-slot"></div>
       </div>
+      <span class="coin-pop">NOT WIRED YET</span>
     </div>
+    <p class="plate">SLOT OPEN</p>
   </div>
-</section>
 
-<section>
-  <div class="wrap">
-    <p class="lbl">Community &amp; anti-griefing</p>
-    <h2>The rules that keep a bonus from becoming a debt.</h2>
-    <ul class="rules">
-      <li><span class="mk mono">STATE IT</span><span>Put the no-guarantees line in the contract comments, on the site and in the whitepaper — <b>the same sentence in all three</b>.</span></li>
-      <li><span class="mk mono">BUILD IT</span><span>Make Game&nbsp;1 <b>excellent and complete on its own</b>. The item must be worth owning if no second game ever ships.</span></li>
-      <li><span class="mk no mono">NEVER</span><span>Never market future compatibility as certain — <b>not in a tweet, not in a Discord reply</b>.</span></li>
-      <li><span class="mk mono">OPTIONAL</span><span>A separate <b>Compatibility Registry</b> contract that future games may opt into, if and when they choose to.</span></li>
-    </ul>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <p class="lbl">Storage &amp; frontend</p>
-    <div class="two">
-      <article>
-        <h3>Storage</h3>
-        <ul>
-          <li>Images and media on <strong>IPFS</strong>, or Arweave where stronger permanence is wanted.</li>
-          <li><strong>Never</strong> store critical data on private servers that can disappear.</li>
-          <li>Metadata JSON stays minimal, standardised, and pinned on IPFS as well.</li>
-        </ul>
-      </article>
-      <article>
-        <h3>Frontend</h3>
-        <ul>
-          <li>A simple static site that reads on-chain data — Vercel, Netlify or Cloudflare Pages.</li>
-          <li>Keep it lightweight and fast so it <strong>never becomes a dependency</strong> for the NFTs themselves.</li>
-          <li>If this site vanished tomorrow, every token would be unaffected.</li>
-        </ul>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <p class="lbl">Research precedents</p>
-    <h2>Who has actually done this, and what it cost them.</h2>
-    <div class="refs">
-      <article>
-        <h3>Illuvium</h3>
-        <p class="role">Best mechanical example</p>
-        <p>Fuel and creatures move between their own games — genuine mechanical portability inside one studio's control.</p>
-      </article>
-      <article>
-        <h3>Immutable</h3>
-        <p class="role">Marketplace &amp; economics</p>
-        <p>Strong shared marketplace and economic portability across an ecosystem of titles.</p>
-      </article>
-      <article>
-        <h3>Gala Games</h3>
-        <p class="role">Economic interoperability</p>
-        <p>A shared token and marketplace rather than shared item mechanics.</p>
-      </article>
-      <article>
-        <h3>Sandbox / Enjin</h3>
-        <p class="role">Recreation model</p>
-        <p>Items are re-created per game rather than truly carried across — expensive, and not pure portability.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <p class="lbl">Other considerations</p>
-    <h2>Known costs, listed before they are paid.</h2>
-    <ul class="cons">
-      <li><b>Centralised off-chain data</b>Stats or images on private servers can vanish, taking the item's meaning with them.</li>
-      <li><b>Upgradeable proxy contracts</b>Add complexity and can reduce community trust in the permanence being claimed.</li>
-      <li><b>Marketplace fragmentation</b>Each game may run its own marketplace, splitting liquidity.</li>
-      <li><b>Art-style translation cost</b>The same weapon must be redrawn to fit each game's visual language.</li>
-      <li><b>Legal &amp; licensing language</b>Rights must be explicit, including the absence of rights to future titles.</li>
-      <li><b>Gas &amp; batch efficiency</b>An ERC-1155 advantage worth keeping, especially for multi-item transfers.</li>
-      <li><b>Wallet UX</b>Account abstraction matters for players who are not crypto users.</li>
-      <li><b>Regulatory uncertainty</b>NFTs are treated as securities in some jurisdictions.</li>
-      <li><b>Long-term maintenance</b>Any shared stats or compatibility contract is a permanent upkeep commitment.</li>
-    </ul>
-  </div>
-</section>
+</main>
 
 <footer>
-  <div class="wrap">
-    <p>Design notes — a working document, not a roadmap. Nothing here is a commitment to ship any particular title.</p>
-    <p class="mono">games.wick.pics</p>
-  </div>
+  NEW CABINETS LAND HERE AS THEY'RE FINISHED
 </footer>
+
+<script>
+  // coin feedback: tap a cabinet, it tells you whether it's playable yet
+  document.querySelectorAll('.cabinet').forEach(cab => {
+    const pop = () => {
+      document.querySelectorAll('.cabinet').forEach(c => c.classList.remove('clicked'));
+      void cab.offsetWidth;                       // restart the animation on repeat taps
+      cab.classList.add('clicked');
+      setTimeout(() => cab.classList.remove('clicked'), 1150);
+    };
+    cab.addEventListener('click', pop);
+    cab.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pop(); }
+    });
+  });
+</script>
 
 </body>
 </html>
