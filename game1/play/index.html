@@ -319,13 +319,13 @@ function drawGunInHand(type,kick,holo){
    vector hero to these the moment hero_walk.png loads; missing files fall back gracefully.
    Tune frame counts / fps / HEROSCALE below if a sheet differs. */
 const HERO_SHEETS={
-  walk:{file:"hero_walk.png",n:6,fps:12}, shoot:{file:"hero_shoot.png",n:6,fps:16},
-  idle:{file:"hero_idle.png",n:6,fps:8}, jump:{file:"hero_jump.png",n:6,fps:9},
-  runshoot:{file:"hero_runshoot.png",n:6,fps:14},            // (2) walk-and-fire (optional)
+  walk:{file:"hero_walk.webp",n:6,fps:12}, shoot:{file:"hero_shoot.webp",n:6,fps:16},
+  idle:{file:"hero_idle.webp",n:6,fps:8}, jump:{file:"hero_jump.webp",n:6,fps:9},
+  runshoot:{file:"hero_runshoot.webp",n:6,fps:14},            // (2) walk-and-fire (optional)
   // (4) per-gun-class sheets (gun baked into the pose) — selected by equipped Arsenal gun:
-  pistol_stand:{file:"hero_pistol_stand.png",n:6,fps:8}, pistol_run:{file:"hero_pistol_run.png",n:6,fps:12},
-  rifle_stand:{file:"hero_rifle_stand.png",n:6,fps:8},  rifle_run:{file:"hero_rifle_run.png",n:6,fps:12},
-  pistol_jump:{file:"hero_pistol_jump.png",n:6,fps:9},  rifle_jump:{file:"hero_rifle_jump.png",n:6,fps:9}
+  pistol_stand:{file:"hero_pistol_stand.webp",n:6,fps:8}, pistol_run:{file:"hero_pistol_run.webp",n:6,fps:12},
+  rifle_stand:{file:"hero_rifle_stand.webp",n:6,fps:8},  rifle_run:{file:"hero_rifle_run.webp",n:6,fps:12},
+  pistol_jump:{file:"hero_pistol_jump.webp",n:6,fps:9},  rifle_jump:{file:"hero_rifle_jump.webp",n:6,fps:9}
 };
 let HEROSCALE=1.0; const heroImg={};
 const STRIDE_PX=13;   // ground px per run-cycle frame (6f cycle ≈ 78px) — matches feet to travel, no ice-skating
@@ -337,30 +337,9 @@ const HERO_HAND={
   rifle_stand:{x:22,y:31,rot:0,gscale:0.66},  rifle_run:{x:23,y:30,rot:0,gscale:0.66},
   pistol_jump:{x:13,y:32,rot:0,gscale:0.62},  rifle_jump:{x:22,y:32,rot:0,gscale:0.66},
   shoot:{x:15,y:29,rot:0,gscale:0.6}, walk:{x:12,y:24,rot:0.2,gscale:0.6}, idle:{x:9,y:21,rot:0.4,gscale:0.58}, jump:{x:12,y:27,rot:0.1,gscale:0.6} };
-function keyWhite(im){ // border flood-fill removing transparent + baked white/grey checkerboard backgrounds
-  try{ const c=document.createElement("canvas"); c.width=im.width; c.height=im.height; const cx=c.getContext("2d",{willReadFrequently:true}); cx.drawImage(im,0,0);
-    let dat; try{ dat=cx.getImageData(0,0,im.width,im.height); }catch(e){ return im; }
-    const d=dat.data,w=im.width,h=im.height;
-    const isBg=i=>{ if(d[i+3]<40)return true; const r=d[i],g2=d[i+1],b=d[i+2];
-      return r>148&&g2>148&&b>148 && Math.abs(r-g2)<18 && Math.abs(g2-b)<18; };   // transparent OR bright low-sat white/grey checker
-    const seen=new Uint8Array(w*h), st=[];
-    for(let x=0;x<w;x++){ st.push(x,0,x,h-1); } for(let y=0;y<h;y++){ st.push(0,y,w-1,y); }
-    while(st.length){ const yy=st.pop(),xx=st.pop(); if(xx<0||yy<0||xx>=w||yy>=h)continue; const p=yy*w+xx; if(seen[p])continue; const i=p*4; if(!isBg(i))continue; seen[p]=1; d[i+3]=0; st.push(xx+1,yy,xx-1,yy,xx,yy+1,xx,yy-1); }
-    // DEFRINGE: JPEG antialiasing leaves 1-2px of whitish blend pixels hugging the silhouette — eat them.
-    // Two passes: any still-opaque pixel that touches transparency and reads bright/low-saturation goes too.
-    for(let pass=0;pass<2;pass++){
-      const kill=[];
-      for(let yy=1;yy<h-1;yy++)for(let xx=1;xx<w-1;xx++){
-        const p=yy*w+xx, i=p*4; if(d[i+3]<40)continue;
-        if(d[(p-1)*4+3]<40||d[(p+1)*4+3]<40||d[(p-w)*4+3]<40||d[(p+w)*4+3]<40){
-          const r=d[i],g2=d[i+1],b=d[i+2], mx=Math.max(r,g2,b), mn=Math.min(r,g2,b);
-          if(mx>150 && (mx-mn)<46) kill.push(i);                     // bright + near-grey = halo, not art
-        }
-      }
-      for(const i of kill)d[i+3]=0;
-      if(!kill.length)break;
-    }
-    cx.putImageData(dat,0,0); return c;
+function keyWhite(im){ /* transparency baked at build time by tools/bake_alpha.py */
+  try{ const c=document.createElement("canvas"); c.width=im.width; c.height=im.height;
+    c.getContext("2d",{willReadFrequently:true}).drawImage(im,0,0); return c;
   }catch(e){ return im; }
 }
 function handAnchors(c,n){ // per-frame FORWARD-HAND detection: the green-skin cluster farthest from the body's center.

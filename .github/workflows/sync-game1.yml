@@ -6,7 +6,10 @@ name: Sync game1 from upstream
 # Post-processing exists because a plain copy would regress the site:
 #   1. the mobile-wallet deeplink upstream points at pepe-zero.vercel.app
 #   2. upstream ships icon-192 and apple-touch-icon as 512x512 115KB copies
-# Both are re-applied on every sync, so the sync is idempotent.
+#   3. sprite sheets are JPEGs behind .png names, so the game rebuilds their
+#      transparency in the browser on every load - we bake it into WebP instead
+# All re-applied by tools/apply_local_patches.py, which exits non-zero if an
+# upstream change moved a patch target, so a half-patched game never ships.
 
 on:
   schedule:
@@ -47,39 +50,8 @@ jobs:
       - name: Re-apply local patches
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet pillow
-
-          python3 - <<'PY'
-          import os, sys
-          from PIL import Image
-
-          # 1. deeplink must point at this host, not the old Vercel copy
-          p = "game1/play/index.html"
-          s = open(p, encoding="utf-8").read()
-          old = "metamask.app.link/dapp/pepe-zero.vercel.app"
-          new = "metamask.app.link/dapp/games.wick.pics/game1"
-          if old in s:
-              s = s.replace(old, new)
-              open(p, "w", encoding="utf-8").write(s)
-              print("patched deeplink")
-          elif new in s:
-              print("deeplink already correct")
-          else:
-              sys.exit("deeplink pattern not found - upstream changed, fix the workflow")
-
-          # 2. icons down to their declared sizes (upstream ships 512x512 copies)
-          for f, size in [("game1/play/icon-192.png", 192),
-                          ("game1/play/icon-512.png", 512),
-                          ("game1/play/apple-touch-icon.png", 180)]:
-              if not os.path.exists(f):
-                  print("missing, skipped:", f); continue
-              before = os.path.getsize(f)
-              im = Image.open(f).convert("RGBA")
-              if im.size != (size, size):
-                  im = im.resize((size, size), Image.LANCZOS)
-              im.save(f, "PNG", optimize=True, compress_level=9)
-              print(f"{f}: {before//1024}K -> {os.path.getsize(f)//1024}K")
-          PY
+          python3 -m pip install --quiet pillow numpy scipy
+          python3 tools/apply_local_patches.py
 
       - name: Commit if anything changed
         run: |
