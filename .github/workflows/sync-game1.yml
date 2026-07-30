@@ -1,0 +1,95 @@
+name: Sync game1 from upstream
+
+# Pulls mtwhv5ktjr-bot/pepe-wick@main into game1/play/ and re-applies the two
+# local post-processing steps, so an upstream release lands here without a ping.
+#
+# Post-processing exists because a plain copy would regress the site:
+#   1. the mobile-wallet deeplink upstream points at pepe-zero.vercel.app
+#   2. upstream ships icon-192 and apple-touch-icon as 512x512 115KB copies
+# Both are re-applied on every sync, so the sync is idempotent.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'      # every 30 min
+  workflow_dispatch:            # or run it by hand from the Actions tab
+
+concurrency:
+  group: sync-game1
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch upstream
+        run: |
+          set -euo pipefail
+          curl -fsSL https://api.github.com/repos/mtwhv5ktjr-bot/pepe-wick/tarball/main -o up.tar.gz
+          mkdir -p upstream
+          tar xzf up.tar.gz -C upstream --strip-components=1
+          test -f upstream/index.html || { echo "upstream index.html missing - refusing to sync"; exit 1; }
+          bytes=$(wc -c < upstream/index.html)
+          test "$bytes" -gt 50000 || { echo "upstream index.html only $bytes bytes - refusing to sync"; exit 1; }
+
+      # --delete so files removed upstream also disappear here
+      - name: Copy into game1/play
+        run: |
+          set -euo pipefail
+          mkdir -p game1/play
+          rsync -a --delete --exclude '.git*' upstream/ game1/play/
+          rm -rf upstream up.tar.gz
+
+      - name: Re-apply local patches
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+
+          python3 - <<'PY'
+          import os, sys
+          from PIL import Image
+
+          # 1. deeplink must point at this host, not the old Vercel copy
+          p = "game1/play/index.html"
+          s = open(p, encoding="utf-8").read()
+          old = "metamask.app.link/dapp/pepe-zero.vercel.app"
+          new = "metamask.app.link/dapp/games.wick.pics/game1"
+          if old in s:
+              s = s.replace(old, new)
+              open(p, "w", encoding="utf-8").write(s)
+              print("patched deeplink")
+          elif new in s:
+              print("deeplink already correct")
+          else:
+              sys.exit("deeplink pattern not found - upstream changed, fix the workflow")
+
+          # 2. icons down to their declared sizes (upstream ships 512x512 copies)
+          for f, size in [("game1/play/icon-192.png", 192),
+                          ("game1/play/icon-512.png", 512),
+                          ("game1/play/apple-touch-icon.png", 180)]:
+              if not os.path.exists(f):
+                  print("missing, skipped:", f); continue
+              before = os.path.getsize(f)
+              im = Image.open(f).convert("RGBA")
+              if im.size != (size, size):
+                  im = im.resize((size, size), Image.LANCZOS)
+              im.save(f, "PNG", optimize=True, compress_level=9)
+              print(f"{f}: {before//1024}K -> {os.path.getsize(f)//1024}K")
+          PY
+
+      - name: Commit if anything changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- game1/play; then
+            echo "no upstream change"
+            exit 0
+          fi
+          git config user.name  "games-wick-sync"
+          git config user.email "actions@users.noreply.github.com"
+          git add game1/play
+          git commit -m "sync game1 from mtwhv5ktjr-bot/pepe-wick@main"
+          git push
