@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cabinet locked — PEPE WICK</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0a12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230a0a12'/%3E%3Ctext x='50' y='72' font-size='58' text-anchor='middle'%3E%F0%9F%95%B9%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@500;700&display=swap">
+<style>
+  :root{
+    --neon-cyan:#05d9e8;
+    --neon-yellow:#f9f871;
+    --neon-pink:#ff2a6d;
+    --pepe-green:#7cf9a5;
+    --display:'Press Start 2P', ui-monospace, monospace;
+    --body:'Orbitron', system-ui, sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% 46%, rgba(5,217,232,.10) 0%, transparent 48%),
+      linear-gradient(180deg,#0a0a12 0%,#12121f 44%,#0d0d18 100%);
+    font-family:var(--body);
+    color:#e0e0e0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:1.5rem;
+  }
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);
+    pointer-events:none;
+    z-index:100;
+    opacity:.4;
+  }
+
+  .cab{width:min(420px,100%);position:relative;z-index:5}
+
+  .marquee{
+    height:44px;
+    background:linear-gradient(180deg,#111,#222);
+    border:3px solid #333;
+    border-bottom:none;
+    border-radius:6px 6px 0 0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .marquee span{
+    font-family:var(--display);
+    font-size:.7rem;
+    letter-spacing:1px;
+    color:var(--pepe-green);
+    text-shadow:0 0 8px currentColor,0 0 18px currentColor;
+    animation:pulse 2.6s ease-in-out infinite;
+  }
+
+  .bezel{
+    background:linear-gradient(180deg,#1f1f1f,#151515);
+    padding:14px 12px;
+    border:4px solid #2a2a2a;
+    border-top:none;
+    border-radius:0 0 8px 8px;
+    box-shadow:inset 0 0 20px rgba(0,0,0,.9),0 8px 28px rgba(5,217,232,.10);
+  }
+
+  .screen{
+    aspect-ratio:4/3;
+    background:
+      radial-gradient(ellipse at 50% 44%, rgba(5,217,232,.14) 0%, transparent 62%),
+      radial-gradient(ellipse at center,#101a2b 0%,#070b13 100%);
+    border-radius:3px;
+    position:relative;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:1.15rem;
+    padding:1.25rem;
+    text-align:center;
+  }
+  .screen::before{
+    content:'';
+    position:absolute;inset:0;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.16),rgba(0,0,0,.16) 1px,transparent 1px,transparent 3px);
+    pointer-events:none;opacity:.55;z-index:5;
+  }
+  .screen::after{
+    content:'';
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,transparent 48%,rgba(0,0,0,.58) 100%);
+    pointer-events:none;z-index:4;
+  }
+  .screen > *{position:relative;z-index:6}
+
+  .lock{
+    font-family:var(--display);
+    font-size:.72rem;
+    color:var(--neon-cyan);
+    text-shadow:0 0 10px var(--neon-cyan),0 0 26px rgba(5,217,232,.6);
+    line-height:1.9;
+  }
+  .sub{
+    font-family:var(--display);
+    font-size:.44rem;
+    letter-spacing:1.5px;
+    color:var(--neon-yellow);
+    text-shadow:0 0 8px rgba(249,248,113,.5);
+    line-height:2.1;
+  }
+
+  form{display:flex;flex-direction:column;gap:.7rem;width:100%;align-items:center}
+
+  input{
+    width:min(240px,100%);
+    background:#060a10;
+    border:2px solid #2b3947;
+    border-radius:4px;
+    color:var(--pepe-green);
+    font-family:var(--display);
+    font-size:.7rem;
+    letter-spacing:3px;
+    text-align:center;
+    padding:.75rem .5rem;
+    text-transform:uppercase;
+  }
+  input:focus{outline:none;border-color:var(--neon-cyan);box-shadow:0 0 14px rgba(5,217,232,.35)}
+  input::placeholder{color:#3b4654;letter-spacing:2px}
+
+  button{
+    font-family:var(--display);
+    font-size:.6rem;
+    letter-spacing:1px;
+    color:#08131a;
+    background:linear-gradient(180deg,#8ff9bd,#4ad48c);
+    border:none;
+    border-radius:4px;
+    padding:.75rem 1.4rem;
+    cursor:pointer;
+    box-shadow:0 4px 0 #1f7a4d;
+    transition:transform .08s, box-shadow .08s;
+  }
+  button:active{transform:translateY(3px);box-shadow:0 1px 0 #1f7a4d}
+  button:focus-visible{outline:2px solid var(--neon-cyan);outline-offset:3px}
+
+  .err{
+    font-family:var(--display);
+    font-size:.5rem;
+    letter-spacing:1px;
+    color:var(--neon-pink);
+    text-shadow:0 0 8px rgba(255,42,109,.6);
+    min-height:1em;
+  }
+
+  .foot{
+    margin-top:1.1rem;
+    text-align:center;
+    font-family:var(--display);
+    font-size:.44rem;
+    letter-spacing:2px;
+    color:#48515e;
+    line-height:2.1;
+  }
+  .foot a{color:#5f6b7a;text-decoration:none;border-bottom:1px solid #2a323c}
+  .foot a:hover,.foot a:focus-visible{color:var(--neon-cyan);border-bottom-color:var(--neon-cyan)}
+
+  @keyframes pulse{0%,100%{opacity:1;filter:brightness(1)}50%{opacity:.88;filter:brightness(1.28)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="cab">
+  <div class="marquee"><span>PEPE WICK</span></div>
+  <div class="bezel">
+    <div class="screen">
+      <p class="lock">CABINET<br>LOCKED</p>
+      <form id="f" autocomplete="off">
+        <label class="sub" for="pw">ENTER PASSWORD TO PLAY</label>
+        <input id="pw" name="pw" type="password" placeholder="••••" autocomplete="off"
+               autocapitalize="characters" spellcheck="false" aria-describedby="err">
+        <button type="submit">INSERT COIN</button>
+        <p class="err" id="err" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+  <p class="foot"><a href="/">← BACK TO ARCADE ALLEY</a></p>
+</div>
+
+<script>
+/* Private-preview gate. NOTE: this is a static host — the check runs in the
+   browser, so it keeps casual visitors out, it is not real access control.
+   Anyone who knows the path can still open play/ directly. */
+const KEY = "f836f4874d384c6bf3b15c37283a5fb5535fdc9aa265b06dcccfe760ade684cc";
+const PASS_FLAG = "pw_game1_ok";
+const DEST = "play/";
+
+async function sha256(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// already unlocked on this device — go straight in
+try { if (localStorage.getItem(PASS_FLAG) === "1") location.replace(DEST); } catch (e) {}
+
+const form = document.getElementById("f");
+const input = document.getElementById("pw");
+const err = document.getElementById("err");
+
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  err.textContent = "";
+  const guess = input.value.trim().toUpperCase();
+  if (!guess) { err.textContent = "ENTER A PASSWORD"; return; }
+  let ok = false;
+  try { ok = (await sha256(guess)) === KEY; }
+  catch (e2) { err.textContent = "BROWSER TOO OLD"; return; }   // crypto.subtle needs https
+  if (ok) {
+    try { localStorage.setItem(PASS_FLAG, "1"); } catch (e3) {}
+    location.replace(DEST);
+  } else {
+    err.textContent = "WRONG PASSWORD";
+    input.value = "";
+    input.focus();
+  }
+});
+
+input.focus();
+</script>
+
+</body>
+</html>

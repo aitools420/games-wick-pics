@@ -131,6 +131,7 @@
     transform-origin:bottom center;
   }
 
+  a.cabinet{display:block;text-decoration:none;color:inherit;cursor:pointer}
   .cabinet:hover,.cabinet:focus-visible{transform:translateY(-14px) scale(1.03);filter:brightness(1.12)}
   .cabinet:focus-visible{outline:2px solid var(--neon-cyan);outline-offset:10px;border-radius:8px}
 
@@ -442,7 +443,7 @@
 
   <!-- the built one -->
   <div class="slot lit">
-    <div class="cabinet" tabindex="0" role="group" aria-label="PEPE WICK — built, arriving here first">
+    <a class="cabinet" href="game1/" aria-label="PEPE WICK — play (password required)">
       <div class="side-left"></div><div class="side-right"></div>
       <div class="marquee"><span class="marquee-text green">PEPE WICK</span></div>
       <div class="bezel">
@@ -457,8 +458,8 @@
         <div class="coin-slot"></div>
       </div>
       <span class="coin-pop">INSERT COIN</span>
-    </div>
-    <p class="plate">THE LILYPAD DISTRICT<br><b>TEN CONTRACTS TO GET BISCUIT BACK</b></p>
+    </a>
+    <p class="plate">THE LILYPAD DISTRICT<br><b>PLAY NOW — PASSWORD REQUIRED</b></p>
   </div>
 
   <!-- empty slot -->
@@ -493,6 +494,7 @@
 <script>
   // coin feedback: tap a cabinet, it tells you whether it's playable yet
   document.querySelectorAll('.cabinet').forEach(cab => {
+    if (cab.tagName === 'A') return;              // the playable one is a link — let it navigate
     const pop = () => {
       document.querySelectorAll('.cabinet').forEach(c => c.classList.remove('clicked'));
       void cab.offsetWidth;                       // restart the animation on repeat taps
